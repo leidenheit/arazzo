@@ -1,7 +1,6 @@
 package de.leidenheit;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,8 +9,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class Application implements CommandLineRunner {
 
-    @Autowired
-    private DummyService dummyService;
+    private final ArazzoService arazzoService;
+
+    public Application(ArazzoService arazzoService) {
+        this.arazzoService = arazzoService;
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
@@ -19,6 +21,8 @@ public class Application implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        System.out.println(dummyService.sayHello());
+        arazzoService.arazzoMe(
+                "documentation/workflow.yaml",
+                "documentation/openapi.yaml");
     }
 }
