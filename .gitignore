@@ -10,6 +10,6 @@
 *.war
 *.ear
 
+.idea/
+*.iws
 *.iml
-
-/.idea/
