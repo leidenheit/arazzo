@@ -1,8 +1,5 @@
 package de.leidenheit;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import io.swagger.v3.oas.models.OpenAPI;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -18,15 +15,12 @@ import java.util.Objects;
 public class ArazzoService {
 
     private final ArazzoParser arazzoParser;
-    private final ArazzoValidator arazzoValidator;
     private final ArazzoExecutor arazzoExecutor;
 
     public ArazzoService(
             final ArazzoParser arazzoParser,
-            final ArazzoValidator arazzoValidator,
             final ArazzoExecutor arazzoExecutor) {
         this.arazzoParser = arazzoParser;
-        this.arazzoValidator = arazzoValidator;
         this.arazzoExecutor = arazzoExecutor;
     }
 
@@ -45,36 +39,26 @@ public class ArazzoService {
 
         // parse specifications
         var arazzoSpecification = parseArazzoSpec(arazzoUrl.toURI());
-        var openApiSpecification = parseOpenApiSpec(openApiUrl.toURI());
-
-        // validate workflows against openapi
-        var valid = validateArazzoAgainstOpenApi(arazzoSpecification, openApiSpecification);
-        if (!valid) {
-            log.error("Arazzo validation against OpenApi failed");
-            return;
-        }
+//        var openApiSpecification = parseOpenApiSpec(openApiUrl.toURI());
 
         // execute workflows
         executeArazzo(arazzoSpecification);
     }
 
     private ArazzoSpecification parseArazzoSpec(final URI arazzoYaml) throws IOException {
-        var parsed = arazzoParser.parseYaml(new File(arazzoYaml));
+        var parsed = arazzoParser.parseYaml(
+                new File(arazzoYaml),
+                ArazzoParser.Configuration.builder().build());
         log.debug("Arazzo: {}", parsed);
         return parsed;
     }
 
-    private OpenAPI parseOpenApiSpec(final URI openapiYaml) throws IOException {
-        var om = new ObjectMapper(new YAMLFactory());
-        var parsed = om.readValue(new File(openapiYaml), OpenAPI.class);
-        log.debug("OpenAPI: {}", parsed);
-        return parsed;
-    }
-
-    private boolean validateArazzoAgainstOpenApi(final ArazzoSpecification arazzoSpecification,
-                                                 final OpenAPI openApiSpecification) {
-        return arazzoValidator.validateAgainstOpenApi(arazzoSpecification, openApiSpecification);
-    }
+//    private OpenAPI parseOpenApiSpec(final URI openapiYaml) throws IOException {
+//        var om = new ObjectMapper(new YAMLFactory());
+//        var parsed = om.readValue(new File(openapiYaml), OpenAPI.class);
+//        log.debug("OpenAPI: {}", parsed);
+//        return parsed;
+//    }
 
     private void executeArazzo(final ArazzoSpecification arazzoSpecification) {
         arazzoExecutor.executeWorkflows(arazzoSpecification);
