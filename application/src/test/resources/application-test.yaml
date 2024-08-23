@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: arazzo
+
+springdoc:
+  swagger-ui:
+      operationsSorter: method
+      path: /swagger-ui/index.html
+  api-docs:
+      path: /openapi
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: DEBUG

@@ -13,3 +13,5 @@
 .idea/
 *.iws
 *.iml
+
+output/
