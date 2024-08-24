@@ -1,17 +1,21 @@
 package de.leidenheit;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Collections;
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ArazzoParseResult {
-    private final List<String> messages;
-    private final ArazzoSpecification arazzo;
-    private final boolean invalid;
+    private List<String> messages;
+    private ArazzoSpecification arazzo;
+    private boolean invalid;
 
     public static ArazzoParseResult ofError(final String errorMessage) {
         return ArazzoParseResult.builder()

@@ -87,9 +87,10 @@ public class ArazzoParser implements ArazzoParserExtension {
             } else {
                 arazzoParseResult = parseJsonNode(location, rootNode);
             }
-            if (Objects.nonNull(arazzoParseResult.getArazzo())) {
-                arazzoParseResult = resolve(arazzoParseResult, options, location);
-            }
+            // TODO finalize implementation
+//            if (Objects.nonNull(arazzoParseResult.getArazzo())) {
+//                arazzoParseResult = resolve(arazzoParseResult, options, location);
+//            }
             return arazzoParseResult;
         } catch (Exception e) {
             var msg = String.format("location:%s; msg=%s", location, e.getMessage());
@@ -111,8 +112,6 @@ public class ArazzoParser implements ArazzoParserExtension {
         var options = ArazzoParseOptions.builder().build();
         return new ArazzoDeserializer().deserialize(node, path, options);
     }
-
-
 
     private ObjectMapper getMapper(final String data) {
         if (data.trim().startsWith("{")) {

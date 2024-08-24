@@ -42,8 +42,9 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                     .build();
             var result = arazzoParser.readLocation(arazzoPath, options);
             if (result.isInvalid()) {
-                throw new RuntimeException("Parsing result invalid; msgs=" + result.getMessages());
+                throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
+            arazzoSpecification = result.getArazzo();
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
         } catch (Exception e) {
