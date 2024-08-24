@@ -4,22 +4,14 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import io.swagger.v3.parser.core.models.ParseOptions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.ParameterContext;
-import org.junit.jupiter.api.extension.ParameterResolutionException;
-import org.junit.jupiter.api.extension.ParameterResolver;
+import org.junit.jupiter.api.extension.*;
 
-import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, ParameterResolver {
-
 
     private final Map<Class<?>, Object> supportedParameterTypes = new HashMap<>();
     private ArazzoSpecification arazzoSpecification;
@@ -38,16 +30,24 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
             oasParseOptions.setResolveFully(true);
             OpenAPI openAPI = oasParser.read(openApiPath, Collections.emptyList(), oasParseOptions);
 
-            arazzoSpecification = arazzoParser.parseYaml(new File(arazzoPath));
+            /*
+            TODO arazzoSpecification = arazzoParser.parseYamlRaw(new File(arazzoPath));
             var isValid = arazzoValidator.validateAgainstOpenApi(arazzoSpecification, openAPI);
             if (!isValid) {
                 throw new RuntimeException("Validation failed");
             }
+             */
+            var options = ArazzoParseOptions.builder()
+                    .resolve(true)
+                    .build();
+            var result = arazzoParser.readLocation(arazzoPath, options);
+            if (result.isInvalid()) {
+                throw new RuntimeException("Parsing result invalid; msgs=" + result.getMessages());
+            }
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
-
-        } catch (IOException ioException) {
-            throw new RuntimeException("IO", ioException);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -58,12 +58,12 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Annotation @WithWorkflowExecution can only be applied to @Test annotated methods");
             }
 
-            if (!testMethod.isAnnotationPresent(WithWorkflowExecution.class)) {
+            if (!testMethod.isAnnotationPresent(WithWorkflowExecutor.class)) {
                 throw new RuntimeException("Annotation @WithWorkflowExecution missing");
             }
 
-            WithWorkflowExecution withWorkflowExecution = testMethod.getAnnotation(WithWorkflowExecution.class);
-            var workflowId = withWorkflowExecution.workflowId();
+            WithWorkflowExecutor withWorkflowExecutor = testMethod.getAnnotation(WithWorkflowExecutor.class);
+            var workflowId = withWorkflowExecutor.workflowId();
             var workflow = arazzoSpecification.getWorkflows().stream()
                     .filter(w -> workflowId.equals(w.getWorkflowId()))
                     .findFirst()

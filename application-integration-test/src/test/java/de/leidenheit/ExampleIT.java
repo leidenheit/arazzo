@@ -8,7 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class ExampleIT {
 
     @Test
-    @WithWorkflowExecution(workflowId = "retrieveCookieAndEatCookie")
+    @WithWorkflowExecutor(workflowId = "retrieveCookieAndEatCookie")
     void exampleTestCase(final ArazzoSpecification arazzo,
                          final ArazzoWorkflowExecutor executor) {
         // given
