@@ -4,28 +4,33 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.swagger.v3.parser.util.OpenAPIDeserializer;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
 
 public class ArazzoDeserializer {
 
-    protected static Set<String> JSON_SCHEMA_2020_12_TYPES = new LinkedHashSet<>(Arrays.asList(
+    protected static Set<String> JSON_SCHEMA_2020_12_TYPES = new LinkedHashSet<>(List.of(
             "null", "boolean", "object", "array", "number", "string", "integer"));
 
-    protected static Set<String> ROOT_KEYS = new LinkedHashSet<>(Arrays.asList());
-    protected static Set<String> INFO_KEYS = new LinkedHashSet<>(Arrays.asList());
+    protected static Set<String> RESERVED_KEYWORDS = new LinkedHashSet<>(List.of());
+    protected static Set<String> ROOT_KEYS = new LinkedHashSet<>(List.of());
+    protected static Set<String> INFO_KEYS = new LinkedHashSet<>(List.of(
+            "title", "summary", "description", "version"
+    ));
     // TODO others
 
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
 
-    protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(Arrays.asList(
+    protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(List.of(
        JsonNodeType.OBJECT, JsonNodeType.STRING
     ));
 
     static {
         Map<String, Set<String>> keys10 = new LinkedHashMap<>();
 
+        keys10.put("RESERVED_KEYWORDS", RESERVED_KEYWORDS);
         keys10.put("ROOT_KEYS", ROOT_KEYS);
         keys10.put("INFO_KEYS", INFO_KEYS);
         // TODO others
@@ -67,6 +72,10 @@ public class ArazzoDeserializer {
     }
 
     public ArazzoSpecification parseRoot(final JsonNode node, final ParseResult parseResult, final String path) {
+
+        // TODO remove: its just for lookup
+        OpenAPIDeserializer openAPIDeserializer;
+
         String location = "";
         ArazzoSpecification arazzo = new ArazzoSpecification();
         if (node.getNodeType().equals(JsonNodeType.OBJECT)){
@@ -79,6 +88,23 @@ public class ArazzoDeserializer {
             }
             arazzo.setArazzo(value);
 
+            // info object (https://spec.openapis.org/arazzo/latest.html#info-object)
+            ObjectNode infoObjNode = getObject("info", rootNode, true, location, parseResult);
+            if (Objects.nonNull(infoObjNode)) {
+                ArazzoSpecification.Info info = getInfo(infoObjNode, "info", parseResult);
+                arazzo.setInfo(info);
+            }
+
+            // source description object (https://spec.openapis.org/arazzo/latest.html#source-description-object)
+            // TODO finalise implementation
+
+            // workflows (https://spec.openapis.org/arazzo/latest.html#workflow-object)
+            // TODO finalise implementation
+
+            // components (https://spec.openapis.org/arazzo/latest.html#components-object)
+            // TODO finalise implementation
+
+            // reference handling
             // TODO finalise implementation
         } else {
             parseResult.invalidType(location, "arazzo", "object", node);
@@ -86,6 +112,95 @@ public class ArazzoDeserializer {
             return null;
         }
         return arazzo;
+    }
+
+    public ArazzoSpecification.Info getInfo(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult) {
+
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        ArazzoSpecification.Info info = new ArazzoSpecification.Info();
+
+        String value = getString("title", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && value != null) || (!parseResult.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
+            info.setTitle(value);
+        }
+
+        value = getString("description", node, false, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && value != null) || (!parseResult.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
+            info.setDescription(value);
+        }
+
+        value = getString("summary", node, false, location, parseResult);
+        if (StringUtils.isNotBlank(value)) {
+            info.setSummary(value);
+        }
+
+        value = getString("version", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && value != null) || (!parseResult.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
+            info.setVersion(value);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("INFO_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return info;
+    }
+
+    public Set<String> getKeys(final ObjectNode node) {
+        Set<String> keys = new LinkedHashSet<>();
+        if (node == null) {
+            return keys;
+        }
+
+        Iterator<String> it = node.fieldNames();
+        while (it.hasNext()) {
+            keys.add(it.next());
+        }
+
+        return keys;
+    }
+
+    private void validateReservedKeywords(Map<String, Set<String>> specKeys, String key, String location, ParseResult result) {
+        if(!result.isOaiAuthor() && specKeys.get("RESERVED_KEYWORDS").stream()
+                .filter(key::startsWith)
+                .findAny()
+                .orElse(null) != null){
+            result.reserved(location, key);
+        }
+    }
+
+    public ObjectNode getObject(final String key,
+                                final ObjectNode node,
+                                final boolean required,
+                                final String location,
+                                final ParseResult result) {
+        JsonNode value = node.get(key);
+        ObjectNode object = null;
+        if (value == null) {
+            if (required) {
+                result.missing(location, key);
+                result.invalid();
+            }
+        } else if (!value.getNodeType().equals(JsonNodeType.OBJECT)) {
+            result.invalidType(location, key, "object", value);
+            if (required) {
+                result.invalid();
+            }
+        } else {
+            object = (ObjectNode) value;
+        }
+        return object;
     }
 
     private String getString(final String key,
