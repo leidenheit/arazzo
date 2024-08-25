@@ -110,7 +110,10 @@ public class ArazzoDeserializer {
             }
 
             // workflows (https://spec.openapis.org/arazzo/latest.html#workflow-object)
-            // TODO finalise implementation
+            ArrayNode workflowsArray = getArray("workflows", rootNode, true, location, parseResult);
+            if (Objects.nonNull(workflowsArray) && !workflowsArray.isEmpty()) {
+                arazzo.setWorkflows(getWorkflowList(workflowsArray, String.format("%s.%s", location, "workflows"), parseResult, path));
+            }
 
             // components (https://spec.openapis.org/arazzo/latest.html#components-object)
             // TODO finalise implementation
@@ -125,16 +128,36 @@ public class ArazzoDeserializer {
         return arazzo;
     }
 
+    private List<ArazzoSpecification.Workflow> getWorkflowList(
+            final ArrayNode node,
+            final String location,
+            final ParseResult parseResult,
+            final String path) {
+        List<ArazzoSpecification.Workflow> workflows = new ArrayList<>();
+        if (Objects.isNull(node)) {
+            return null;
+        }
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                ArazzoSpecification.Workflow workflow = getWorkflow((ObjectNode) item, location, parseResult, path);
+                if (Objects.nonNull(workflow)) {
+                    workflows.add(workflow);
+                }
+            }
+        }
+        return workflows;
+    }
+
     private List<ArazzoSpecification.SourceDescription> getSourceDescriptionList(
-            final ArrayNode obj,
+            final ArrayNode node,
             final String location,
             final ParseResult parseResult,
             final String path) {
         List<ArazzoSpecification.SourceDescription> sourceDescriptions = new ArrayList<>();
-        if (Objects.isNull(obj)) {
+        if (Objects.isNull(node)) {
             return null;
         }
-        for (JsonNode item : obj) {
+        for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
                 ArazzoSpecification.SourceDescription sourceDescription = getSourceDescription((ObjectNode) item, location, parseResult, path);
                 if (Objects.nonNull(sourceDescription)) {
@@ -143,6 +166,41 @@ public class ArazzoDeserializer {
             }
         }
         return sourceDescriptions;
+    }
+
+    private ArazzoSpecification.Workflow getWorkflow(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult,
+            final String path) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        ArazzoSpecification.Workflow workflow = new ArazzoSpecification.Workflow();
+
+        String workflowId = getString("workflowId", node, true, location, parseResult, workflowIds);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId)) {
+            // TODO add check for regex pattern and add a warning if not
+            workflow.setWorkflowId(workflowId);
+        }
+
+        String summary = getString("summary", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(summary)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(summary)) {
+            workflow.setSummary(summary);
+        }
+
+        String description = getString("description", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(description)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(description)) {
+            workflow.setDescription(description);
+        }
+
+        // TODO read other fields
+
+        return workflow;
     }
 
     private ArazzoSpecification.SourceDescription getSourceDescription(
