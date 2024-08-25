@@ -5,10 +5,13 @@ info:
   description: |
     This Arazzo Description walks you through the workflow and steps of `searching` and `eating` an available cookie.
   version: 0.0.1
+  extensions:
+  x-hugo: "Hugo"
 sourceDescriptions:
   - name: cookieApi
     url: http://localhost:8080/openapi.yaml
     type: openapi
+    x-bernd: "Bernd"
 
 workflows:
   - workflowId: retrieveCookieAndEatCookie

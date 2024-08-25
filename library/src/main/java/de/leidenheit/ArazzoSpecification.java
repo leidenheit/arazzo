@@ -33,6 +33,7 @@ public class ArazzoSpecification {
         private String summary;
         private String description;
         private String version;
+        private Map<String, Object> extensions;
     }
 
     @Data
@@ -43,8 +44,9 @@ public class ArazzoSpecification {
     public static class SourceDescription {
         private String name;
         private String url;
-        @JsonDeserialize(using = SourceDescriptionTypeDeserializer.class)
+        // TODO @JsonDeserialize(using = SourceDescriptionTypeDeserializer.class)
         private SourceDescriptionType type;
+        private Map<String, Object> extensions;
 
         @Getter
         @AllArgsConstructor

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 
 import java.io.IOException;
 
+@Deprecated(since = "ArazzoDeserializer")
 public class SourceDescriptionTypeDeserializer
         extends JsonDeserializer<ArazzoSpecification.SourceDescription.SourceDescriptionType> {
 

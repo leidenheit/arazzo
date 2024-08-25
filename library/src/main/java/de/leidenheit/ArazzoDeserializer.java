@@ -2,11 +2,15 @@ package de.leidenheit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.parser.util.OpenAPIDeserializer;
 import org.apache.commons.lang3.StringUtils;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.*;
 
 public class ArazzoDeserializer {
@@ -17,14 +21,17 @@ public class ArazzoDeserializer {
     protected static Set<String> RESERVED_KEYWORDS = new LinkedHashSet<>(List.of());
     protected static Set<String> ROOT_KEYS = new LinkedHashSet<>(List.of());
     protected static Set<String> INFO_KEYS = new LinkedHashSet<>(List.of(
-            "title", "summary", "description", "version"
+            "title", "summary", "description", "version", "extensions"
+    ));
+    protected static Set<String> SOURCE_DESCRIPTION_KEYS = new LinkedHashSet<>(List.of(
+            "name", "url", "type", "extensions"
     ));
     // TODO others
 
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
 
     protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(List.of(
-       JsonNodeType.OBJECT, JsonNodeType.STRING
+            JsonNodeType.OBJECT, JsonNodeType.STRING
     ));
 
     static {
@@ -33,6 +40,7 @@ public class ArazzoDeserializer {
         keys10.put("RESERVED_KEYWORDS", RESERVED_KEYWORDS);
         keys10.put("ROOT_KEYS", ROOT_KEYS);
         keys10.put("INFO_KEYS", INFO_KEYS);
+        keys10.put("SOURCE_DESCRIPTION_KEYS", SOURCE_DESCRIPTION_KEYS);
         // TODO others
 
         KEYS.put("arazzo10", keys10);
@@ -78,7 +86,7 @@ public class ArazzoDeserializer {
 
         String location = "";
         ArazzoSpecification arazzo = new ArazzoSpecification();
-        if (node.getNodeType().equals(JsonNodeType.OBJECT)){
+        if (node.getNodeType().equals(JsonNodeType.OBJECT)) {
             ObjectNode rootNode = (ObjectNode) node;
 
             // arazzo version
@@ -95,8 +103,11 @@ public class ArazzoDeserializer {
                 arazzo.setInfo(info);
             }
 
-            // source description object (https://spec.openapis.org/arazzo/latest.html#source-description-object)
-            // TODO finalise implementation
+            // list of source descriptions (https://spec.openapis.org/arazzo/latest.html#source-description-object)
+            ArrayNode sourceDescriptionsArray = getArray("sourceDescriptions", rootNode, true, location, parseResult);
+            if (Objects.nonNull(sourceDescriptionsArray) && !sourceDescriptionsArray.isEmpty()) {
+                arazzo.setSourceDescriptions(getSourceDescriptionList(sourceDescriptionsArray, String.format("%s.%s", location, "sourceDescriptions"), parseResult, path));
+            }
 
             // workflows (https://spec.openapis.org/arazzo/latest.html#workflow-object)
             // TODO finalise implementation
@@ -112,6 +123,130 @@ public class ArazzoDeserializer {
             return null;
         }
         return arazzo;
+    }
+
+    private List<ArazzoSpecification.SourceDescription> getSourceDescriptionList(
+            final ArrayNode obj,
+            final String location,
+            final ParseResult parseResult,
+            final String path) {
+        List<ArazzoSpecification.SourceDescription> sourceDescriptions = new ArrayList<>();
+        if (Objects.isNull(obj)) {
+            return null;
+        }
+        for (JsonNode item : obj) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                ArazzoSpecification.SourceDescription sourceDescription = getSourceDescription((ObjectNode) item, location, parseResult, path);
+                if (Objects.nonNull(sourceDescription)) {
+                    sourceDescriptions.add(sourceDescription);
+                }
+            }
+        }
+        return sourceDescriptions;
+    }
+
+    private ArazzoSpecification.SourceDescription getSourceDescription(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult,
+            final String path) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        ArazzoSpecification.SourceDescription sourceDescription = new ArazzoSpecification.SourceDescription();
+
+        String name = getString("name", node, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(name)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(name)) {
+            // TODO add check for regex pattern and add a warning if not
+            sourceDescription.setName(name);
+        }
+
+        String typeAsString = getString("type", node, false, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(typeAsString))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(typeAsString))) {
+            // TODO add check for unsupported values
+            var type = ArazzoSpecification.SourceDescription.SourceDescriptionType.valueOf(typeAsString.toUpperCase());
+            sourceDescription.setType(type);
+        }
+
+        String urlAsString = getString("url", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(urlAsString)) || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(urlAsString))) {
+            if (!isValidURL(urlAsString) && Objects.nonNull(path)) {
+                try {
+                    final URI absURI = new URI(path.replaceAll("\\\\", "/"));
+                    if ("http".equals(absURI.getScheme()) || "https".equals(absURI.getScheme())) {
+                        urlAsString = absURI.resolve(new URI(urlAsString)).toString();
+                    }
+                } catch (URISyntaxException e) {
+                    parseResult.warning(location, "invalid url: " + urlAsString);
+                }
+            }
+            sourceDescription.setUrl(urlAsString);
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            sourceDescription.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("SOURCE_DESCRIPTION_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return sourceDescription;
+    }
+
+    private Map<String, Object> getExtensions(final ObjectNode node) {
+        // It seems that the expanded content under the JSON format node is not parsed here,
+        // Result in the expanded content of all nodes that are not resolved
+        // So the expansion node is added here and the content under this node is parsed.
+        Map<String, Object> extensions = tryDirectExtensions(node);
+        if (extensions.isEmpty()) {
+            extensions = tryUnwrapLookupExtensions(node);
+        }
+        return extensions;
+    }
+
+    private Map<String, Object> tryUnwrapLookupExtensions(final ObjectNode node) {
+        Map<String, Object> extensions = new LinkedHashMap<>();
+
+        JsonNode extensionsNode = node.get("extensions");
+        if (Objects.nonNull(extensionsNode) && JsonNodeType.OBJECT.equals(node.getNodeType())) {
+            ObjectNode extensionsObjectNode = (ObjectNode) extensionsNode;
+            extensions.putAll(tryDirectExtensions(extensionsObjectNode));
+        }
+
+        return extensions;
+    }
+
+    private Map<String, Object> tryDirectExtensions(final ObjectNode node) {
+        Map<String, Object> extensions = new LinkedHashMap<>();
+
+        Set<String> keys = getKeys(node);
+        for (String key : keys) {
+            if (key.startsWith("x-")) {
+                extensions.put(key, new ObjectMapper().convertValue(node.get(key), Object.class));
+            }
+        }
+
+        return extensions;
+    }
+
+    private boolean isValidURL(final String urlAsString) {
+        try {
+            URL url = new URL(urlAsString);
+            url.toURI();
+            return true;
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     public ArazzoSpecification.Info getInfo(
@@ -145,6 +280,11 @@ public class ArazzoDeserializer {
             info.setVersion(value);
         }
 
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            info.setExtensions(extensions);
+        }
+
         Set<String> keys = getKeys(node);
         Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
         for (String key : keys) {
@@ -155,6 +295,38 @@ public class ArazzoDeserializer {
         }
 
         return info;
+    }
+
+    public ArrayNode getArray(final String key,
+                              final ObjectNode node,
+                              final boolean required,
+                              final String location,
+                              final ParseResult result) {
+        return getArray(key, node, required, location, result, false);
+    }
+
+    public ArrayNode getArray(
+            final String key,
+            final ObjectNode node,
+            final boolean required,
+            final String location,
+            final ParseResult result,
+            final boolean noInvalidError) {
+        JsonNode value = node.get(key);
+        ArrayNode arrayNode = null;
+        if (value == null) {
+            if (required) {
+                result.missing(location, key);
+                result.invalid();
+            }
+        } else if (!value.getNodeType().equals(JsonNodeType.ARRAY)) {
+            if (!noInvalidError) {
+                result.invalidType(location, key, "array", value);
+            }
+        } else {
+            arrayNode = (ArrayNode) value;
+        }
+        return arrayNode;
     }
 
     public Set<String> getKeys(final ObjectNode node) {
@@ -172,10 +344,10 @@ public class ArazzoDeserializer {
     }
 
     private void validateReservedKeywords(Map<String, Set<String>> specKeys, String key, String location, ParseResult result) {
-        if(!result.isOaiAuthor() && specKeys.get("RESERVED_KEYWORDS").stream()
+        if (!result.isOaiAuthor() && specKeys.get("RESERVED_KEYWORDS").stream()
                 .filter(key::startsWith)
                 .findAny()
-                .orElse(null) != null){
+                .orElse(null) != null) {
             result.reserved(location, key);
         }
     }
@@ -229,7 +401,7 @@ public class ArazzoDeserializer {
                              final boolean noInvalidError) {
         String value = null;
         JsonNode v = node.get(key);
-        if (node == null || v == null) {
+        if (Objects.isNull(node) || Objects.isNull(v)) {
             if (required) {
                 parseResult.missing(location, key);
                 parseResult.invalid();
@@ -240,7 +412,7 @@ public class ArazzoDeserializer {
             }
         } else if (!v.isNull()) {
             value = v.asText();
-            if (uniqueValues != null && !uniqueValues.add(value)) {
+            if (Objects.nonNull(uniqueValues) && !uniqueValues.add(value)) {
                 parseResult.unique(location, "workflowId");
                 parseResult.invalid();
             }
