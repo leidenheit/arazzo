@@ -52,7 +52,7 @@ public class ArazzoDeserializer {
     protected static Set<String> RESERVED_KEYWORDS = new LinkedHashSet<>(List.of());
 
     protected static Set<String> ROOT_KEYS = new LinkedHashSet<>(List.of(
-          "arazzo", "info", "sourceDescriptions", "workflows", "components", "extensions"
+            "arazzo", "info", "sourceDescriptions", "workflows", "components", "extensions"
     ));
     protected static Set<String> INFO_KEYS = new LinkedHashSet<>(List.of(
             "title", "summary", "description", "version", "extensions"
@@ -77,6 +77,9 @@ public class ArazzoDeserializer {
     protected static Set<String> COMPONENTS_KEYS = new LinkedHashSet<>(List.of(
             "inputs", "parameters", "successActions", "failureActions", "extensions"
     ));
+    protected static Set<String> PARAMETER_KEYS = new LinkedHashSet<>(List.of(
+       "name", "in", "value", "extensions"
+    ));
     // TODO others
 
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
@@ -96,6 +99,7 @@ public class ArazzoDeserializer {
         keys10.put("SCHEMA_KEYS", SCHEMA_KEYS);
         keys10.put("XML_KEYS", XML_KEYS);
         keys10.put("COMPONENTS_KEYS", COMPONENTS_KEYS);
+        keys10.put("PARAMETER_KEYS", PARAMETER_KEYS);
         // TODO others
 
         KEYS.put("arazzo10", keys10);
@@ -116,13 +120,12 @@ public class ArazzoDeserializer {
         }
     };
 
-    // TODO components
     private ArazzoSpecification.Components components;
     private JsonNode rootNode;
     private Map<String, Object> rootMap;
     private String basePath;
     private final Set<String> workflowIds = new HashSet<>();
-    private Map<String,String> localSchemaRefs = new HashMap<>();
+    private Map<String, String> localSchemaRefs = new HashMap<>();
 
     public ArazzoParseResult deserialize(final JsonNode node, final String path, final ArazzoParseOptions options) {
         basePath = path;
@@ -239,6 +242,11 @@ public class ArazzoDeserializer {
         if (inputsObj != null) {
             components.setInputs(getSchemas(inputsObj, String.format("%s.%s", location, "inputs"), parseResult, true));
         }
+
+        ObjectNode parametersObj = getObject("parameters", rootNode, false, location, parseResult);
+        if (Objects.nonNull(parametersObj)) {
+            components.setParameters(getParameters(parametersObj, location, parseResult, true));
+        }
         // TODO other fields
 
         Set<String> keys = getKeys(rootNode);
@@ -251,6 +259,86 @@ public class ArazzoDeserializer {
         }
 
         return components;
+    }
+
+    private Map<String, ArazzoSpecification.Workflow.Step.Parameter> getParameters(final ObjectNode obj, final String location, final ParseResult parseResult, final boolean underComponents) {
+        if (Objects.isNull(obj)) {
+            return null;
+        }
+        Map<String, ArazzoSpecification.Workflow.Step.Parameter> parameters = new LinkedHashMap<>();
+        Set<String> filter = new HashSet<>();
+        ArazzoSpecification.Workflow.Step.Parameter parameter = null;
+
+        // TODO this check should be applied to other places where regex validation is required
+        Set<String> parameterKeys = getKeys(obj);
+        for (String parameterName : parameterKeys) {
+            if (underComponents) {
+                if (!Pattern.matches("^[a-zA-Z0-9\\.\\-_]+$",
+                        parameterName)) {
+                    parseResult.warning(location, "Parameter name " + parameterName + " doesn't adhere to regular " +
+                            "expression ^[a-zA-Z0-9\\.\\-_]+$");
+                }
+            }
+
+            JsonNode parameterValue = obj.get(parameterName);
+            if (JsonNodeType.OBJECT.equals(parameterValue.getNodeType())) {
+                ObjectNode parameterObj = (ObjectNode) parameterValue;
+                if (Objects.nonNull(parameterObj)) {
+                    parameter = getParameter(parameterObj, String.format("%s.%s", location, parameterName), parseResult);
+                    if (Objects.nonNull(parameter)) {
+                        parameters.put(parameterName, parameter);
+                    }
+                }
+            }
+        }
+        return parameters;
+    }
+
+    private ArazzoSpecification.Workflow.Step.Parameter getParameter(final ObjectNode obj, final String location, final ParseResult parseResult) {
+        if (Objects.isNull(obj)) {
+            return null;
+        }
+
+        ArazzoSpecification.Workflow.Step.Parameter parameter =
+                ArazzoSpecification.Workflow.Step.Parameter.builder().build();
+
+        String name = getString("name", obj, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(name)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(name)) {
+            // TODO add check for regex pattern and add a warning if not
+            parameter.setName(name);
+        }
+
+        String in = getString("in", obj, false, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(in))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(in))) {
+            // TODO add check for unsupported values and XOR constraints
+            parameter.setIn(ArazzoSpecification.Workflow.Step.Parameter.ParameterEnum.valueOf(in.toUpperCase()));
+        }
+
+        // TODO this field is required and there is not check yet
+        Object value = getAnyType("value", obj, location, parseResult);
+        if (Objects.isNull(value)) {
+            parseResult.missing(location, "value");
+        } else {
+            parameter.setValue(value);
+        }
+
+        Map<String, Object> extensions = getExtensions(obj);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            parameter.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(obj);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("PARAMETER_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, obj.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return parameter;
     }
 
     private List<ArazzoSpecification.Workflow> getWorkflowList(
@@ -1015,6 +1103,7 @@ public class ArazzoDeserializer {
 
         return object;
     }
+
     private OffsetDateTime toDateTime(String dateString) {
 
         OffsetDateTime dateTime = null;
@@ -1515,7 +1604,7 @@ public class ArazzoDeserializer {
             return null;
         }
         //Added to handle NPE from ResolverCache when Trying to dereference a schema
-        if (result == null){
+        if (result == null) {
             result = new ParseResult();
             result.setAllowEmptyStrings(true);
         }
@@ -1528,7 +1617,7 @@ public class ArazzoDeserializer {
 		when it's relative, e.g. currently when parsing a file passing the location as relative ref
 		 */
 
-        for (JsonSchemaParserExtension jsonschemaExtension: jsonschemaExtensions) {
+        for (JsonSchemaParserExtension jsonschemaExtension : jsonschemaExtensions) {
             schema = jsonschemaExtension.getSchema(jsonNode, location, result, rootMap, basePath);
             if (schema != null) {
                 return schema;
@@ -1596,7 +1685,7 @@ public class ArazzoDeserializer {
                 }
             }
             schema = items;
-        }else if (itemsNode != null){
+        } else if (itemsNode != null) {
             Schema items = new Schema();
             if (itemsNode.getNodeType().equals(JsonNodeType.OBJECT)) {
                 items.setItems(getSchema(itemsNode, location, result));
@@ -1674,12 +1763,12 @@ public class ArazzoDeserializer {
                  * need to evaluate json pointer instead to also allow validation of nested schemas
                  * e.g. #/components/schemas/foo/properties/bar
                  */
-                if(schema.get$ref().startsWith("#/components/schemas") && StringUtils.countMatches(schema.get$ref(), "/") == 3){
-                    String refName  = schema.get$ref().substring(schema.get$ref().lastIndexOf("/")+1);
-                    localSchemaRefs.put(refName,location);
+                if (schema.get$ref().startsWith("#/components/schemas") && StringUtils.countMatches(schema.get$ref(), "/") == 3) {
+                    String refName = schema.get$ref().substring(schema.get$ref().lastIndexOf("/") + 1);
+                    localSchemaRefs.put(refName, location);
                 }
-                if(ref.textValue().startsWith("#/components") && !(ref.textValue().startsWith("#/components/schemas"))) {
-                    result.warning(location, "$ref target "+ref.textValue() +" is not of expected type Schema");
+                if (ref.textValue().startsWith("#/components") && !(ref.textValue().startsWith("#/components/schemas"))) {
+                    result.warning(location, "$ref target " + ref.textValue() + " is not of expected type Schema");
                 }
                 return schema;
             } else {
@@ -1730,7 +1819,7 @@ public class ArazzoDeserializer {
         if (StringUtils.isBlank(schema.getType())) {
             if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
                 schema.setType(value);
-            } else if (result.isInferSchemaType()){
+            } else if (result.isInferSchemaType()) {
                 // may have an enum where type can be inferred
                 JsonNode enumNode = node.get("enum");
                 if (enumNode != null && enumNode.isArray()) {
@@ -1824,7 +1913,7 @@ public class ArazzoDeserializer {
             if (defaultObject != null) {
                 schema.setDefault(defaultObject);
             }
-        }else{
+        } else {
             schema.setDefault(null);
         }
 
@@ -1849,7 +1938,7 @@ public class ArazzoDeserializer {
     }
 
     public Map<String, Schema<?>> getSchemas(ObjectNode obj, String location, ParseResult result,
-                                          boolean underComponents) {
+                                             boolean underComponents) {
         if (obj == null) {
             return null;
         }

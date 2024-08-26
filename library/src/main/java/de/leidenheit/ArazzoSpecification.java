@@ -103,8 +103,9 @@ public class ArazzoSpecification {
                 private String name;
                 @JsonDeserialize(using = ParameterInDeserializer.class)
                 private ParameterEnum in;
-                private String value;
+                private Object value;
                 private String reference;
+                private Map<String, Object> extensions;
 
                 @Getter
                 @AllArgsConstructor
