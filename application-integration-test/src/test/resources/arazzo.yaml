@@ -12,7 +12,6 @@ sourceDescriptions:
     url: http://localhost:8080/openapi.yaml
     type: openapi
     x-bernd: "Bernd"
-
 workflows:
   - workflowId: retrieveCookieAndEatCookie
     summary: Retrieve cookie by an identifier and eat it
@@ -53,3 +52,37 @@ workflows:
           ateCookie: $response.body
     outputs:
       available: $steps.eatCookieStep.ateCookie
+components:
+  parameters:
+    id:
+      name: cookieId
+      in: path
+      value: $inputs.cookieId
+  inputs:
+    pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+  successActions:
+    successRetrieveCookieAndEatCookie:
+      name: successRetrieveCookieAndEatCookieAndEnd
+      type: end
+      workflowId: retrieveCookieAndEatCookie
+      criteria:
+        # assertions to determine if this action should be executed
+        - condition: $statusCode == 202
+  failureActions:
+    retryRetrieveCookieAndEatCookie:
+      name: retryRetrieveCookieAndEatCookieFiveTimes
+      type: retry
+      retryAfter: 1
+      retryLimit: 5
+      workflowId: retrieveCookieAndEatCookie
+      criteria:
+        # assertions to determine if this action should be executed
+        - condition: $statusCode == 500

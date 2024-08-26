@@ -3,6 +3,7 @@ package de.leidenheit;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.media.Schema;
 import lombok.*;
@@ -22,6 +23,7 @@ public class ArazzoSpecification {
     private List<SourceDescription> sourceDescriptions;
     private List<Workflow> workflows;
     private Components components;
+    private OpenAPI openAPI;
 
     @Data
     @Builder
@@ -134,11 +136,12 @@ public class ArazzoSpecification {
     @AllArgsConstructor
     @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class Components {
+    public static class Components {
         private Map<String, Schema<?>> inputs;
         private Map<String, Workflow.Step.Parameter> parameters;
         private Map<String, SuccessAction> successActions;
         private Map<String, FailureAction> failureActions;
+        private Map<String, Object> extensions;
 
         public void addInput(final String key, final Schema<?> input) {
             this.inputs.put(key, input);

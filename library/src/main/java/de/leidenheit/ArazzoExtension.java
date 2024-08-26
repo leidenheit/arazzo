@@ -45,6 +45,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
             arazzoSpecification = result.getArazzo();
+            arazzoSpecification.setOpenAPI(openAPI);
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
         } catch (Exception e) {
@@ -70,7 +71,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
-            ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(workflow);
+            ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow);
 
             supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
     }
