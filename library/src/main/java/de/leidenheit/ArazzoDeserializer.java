@@ -78,7 +78,16 @@ public class ArazzoDeserializer {
             "inputs", "parameters", "successActions", "failureActions", "extensions"
     ));
     protected static Set<String> PARAMETER_KEYS = new LinkedHashSet<>(List.of(
-       "name", "in", "value", "extensions"
+            "name", "in", "value", "extensions"
+    ));
+    protected static Set<String> SUCCESS_ACTION_KEYS = new LinkedHashSet<>(List.of(
+            "name", "type", "workflowId", "stepId", "criteria", "extensions"
+    ));
+    protected static Set<String> FAILURE_ACTION_KEYS = new LinkedHashSet<>(List.of(
+            "name", "type", "workflowId", "stepId", "criteria", "retryAfter", "retryLimit", "extensions"
+    ));
+    protected static Set<String> CRITERION_KEYS = new LinkedHashSet<>(List.of(
+            "context", "condition", "type", "extensions"
     ));
     // TODO others
 
@@ -100,6 +109,9 @@ public class ArazzoDeserializer {
         keys10.put("XML_KEYS", XML_KEYS);
         keys10.put("COMPONENTS_KEYS", COMPONENTS_KEYS);
         keys10.put("PARAMETER_KEYS", PARAMETER_KEYS);
+        keys10.put("SUCCESS_ACTION_KEYS", SUCCESS_ACTION_KEYS);
+        keys10.put("FAILURE_ACTION_KEYS", FAILURE_ACTION_KEYS);
+        keys10.put("CRITERION_KEYS", CRITERION_KEYS);
         // TODO others
 
         KEYS.put("arazzo10", keys10);
@@ -192,7 +204,7 @@ public class ArazzoDeserializer {
             // components (https://spec.openapis.org/arazzo/latest.html#components-object)
             ObjectNode componentsObj = getObject("components", rootNode, false, location, parseResult);
             if (componentsObj != null) {
-                this.components = getComponents(componentsObj, "components", parseResult);
+                this.components = getComponents(componentsObj, "components", parseResult, path);
                 arazzo.setComponents(components);
 //                if(parseResult.validateInternalRefs) {
 //                    /* TODO currently only capable of validating if ref is to root schema withing #/components/schemas
@@ -209,8 +221,6 @@ public class ArazzoDeserializer {
 //                }
             }
 
-            // TODO finalise implementation
-
             Set<String> keys = getKeys(rootNode);
             Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
             for (String key : keys) {
@@ -220,8 +230,7 @@ public class ArazzoDeserializer {
                 validateReservedKeywords(specKeys, key, location, parseResult);
             }
 
-            // reference handling
-            // TODO finalise implementation
+            // TODO reference handling
         } else {
             parseResult.invalidType(location, "arazzo", "object", node);
             parseResult.invalid();
@@ -232,7 +241,8 @@ public class ArazzoDeserializer {
 
     private ArazzoSpecification.Components getComponents(final ObjectNode rootNode,
                                                          final String location,
-                                                         final ParseResult parseResult) {
+                                                         final ParseResult parseResult,
+                                                         final String path) {
         if (rootNode == null) {
             return null;
         }
@@ -247,7 +257,21 @@ public class ArazzoDeserializer {
         if (Objects.nonNull(parametersObj)) {
             components.setParameters(getParameters(parametersObj, location, parseResult, true));
         }
-        // TODO other fields
+
+        ObjectNode successActionsObj = getObject("successActions", rootNode, false, location, parseResult);
+        if (Objects.nonNull(successActionsObj)) {
+            components.setSuccessActions(getSuccessActions(successActionsObj, location, parseResult, true));
+        }
+
+        ObjectNode failureActionsObj = getObject("failureActions", rootNode, false, location, parseResult);
+        if (Objects.nonNull(failureActionsObj)) {
+            components.setFailureActions(getFailureActions(failureActionsObj, location, parseResult, true));
+        }
+
+        Map<String, Object> extensions = getExtensions(rootNode);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            components.setExtensions(extensions);
+        }
 
         Set<String> keys = getKeys(rootNode);
         Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
@@ -261,10 +285,285 @@ public class ArazzoDeserializer {
         return components;
     }
 
+    private Map<String, FailureAction> getFailureActions(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult,
+            boolean underComponents) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        Map<String, FailureAction> failureActions = new LinkedHashMap<>();
+        Set<String> filter = new HashSet<>();
+        FailureAction failureAction = null;
+
+        Set<String> failureActionKeys = getKeys(node);
+        for (String failureActionKey : failureActionKeys) {
+            if (underComponents) {
+                if (!Pattern.matches("^[a-zA-Z0-9\\.\\-_]+$",
+                        failureActionKey)) {
+                    parseResult.warning(location, "FailureAction name " + failureActionKey + " doesn't adhere to regular " +
+                            "expression ^[a-zA-Z0-9\\.\\-_]+$");
+                }
+            }
+
+            JsonNode failureActionValue = node.get(failureActionKey);
+            if (JsonNodeType.OBJECT.equals(failureActionValue.getNodeType())) {
+                ObjectNode failureActionObj = (ObjectNode) failureActionValue;
+                if (Objects.nonNull(failureActionObj)) {
+                    failureAction = getFailureAction(failureActionObj, String.format("%s.%s", location, failureActionValue), parseResult);
+                    if (Objects.nonNull(failureAction)) {
+                        failureActions.put(failureActionKey, failureAction);
+                    }
+                }
+            }
+        }
+        return failureActions;
+    }
+
+    private FailureAction getFailureAction(final ObjectNode node, final String location, final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        FailureAction failureAction = FailureAction.builder().build();
+
+        String name = getString("name", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(name))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(name))) {
+            failureAction.setName(name);
+        }
+
+        String type = getString("type", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(type))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(type))) {
+            failureAction.setType(FailureAction.FailureActionType.valueOf(type.toUpperCase()));
+        }
+
+        // TODO multiple source description handling
+        boolean workflowIdRequired = FailureAction.FailureActionType.GOTO.getValue().equalsIgnoreCase(type);
+        String workflowId = getString("workflowId", node, workflowIdRequired, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId))) {
+            failureAction.setWorkflowId(workflowId);
+        }
+
+        // TODO XOR constraints
+        boolean stepIdRequired = FailureAction.FailureActionType.GOTO.getValue().equalsIgnoreCase(type);
+        String stepId = getString("stepId", node, stepIdRequired, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(stepId))) {
+            failureAction.setStepId(stepId);
+        }
+
+        BigDecimal retryAfter = getBigDecimal("retryAfter", node, false, location, parseResult);
+        if (Objects.nonNull(retryAfter)) {
+            failureAction.setRetryAfter(retryAfter);
+        }
+
+        Integer retryLimit = getInteger("retryLimit", node, false, location, parseResult);
+        if (Objects.nonNull(retryLimit)) {
+            failureAction.setRetryLimit(retryLimit);
+        }
+
+        ArrayNode criteriaArray = getArray("criteria", node, false, location, parseResult);
+        if (Objects.nonNull(criteriaArray) && !criteriaArray.isEmpty()) {
+            failureAction.setCriteria(getCriteriaList(criteriaArray, location, parseResult));
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            failureAction.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("FAILURE_ACTION_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return failureAction;
+    }
+
+    private Map<String, SuccessAction> getSuccessActions(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult,
+            boolean underComponents) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        Map<String, SuccessAction> successActions = new LinkedHashMap<>();
+        Set<String> filter = new HashSet<>();
+        SuccessAction successAction = null;
+
+        Set<String> successActionKeys = getKeys(node);
+        for (String successActionKey : successActionKeys) {
+            if (underComponents) {
+                if (!Pattern.matches("^[a-zA-Z0-9\\.\\-_]+$",
+                        successActionKey)) {
+                    parseResult.warning(location, "SuccessAction name " + successActionKey + " doesn't adhere to regular " +
+                            "expression ^[a-zA-Z0-9\\.\\-_]+$");
+                }
+            }
+
+            JsonNode successActionValue = node.get(successActionKey);
+            if (JsonNodeType.OBJECT.equals(successActionValue.getNodeType())) {
+                ObjectNode successActionObj = (ObjectNode) successActionValue;
+                if (Objects.nonNull(successActionObj)) {
+                    successAction = getSuccessAction(successActionObj, String.format("%s.%s", location, successActionValue), parseResult);
+                    if (Objects.nonNull(successAction)) {
+                        successActions.put(successActionKey, successAction);
+                    }
+                }
+            }
+        }
+        return successActions;
+    }
+
+    private SuccessAction getSuccessAction(final ObjectNode node,
+                                           final String location,
+                                           final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        SuccessAction successAction = SuccessAction.builder().build();
+
+        String name = getString("name", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(name))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(name))) {
+            successAction.setName(name);
+        }
+
+        String type = getString("type", node, true, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(type))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(type))) {
+            successAction.setType(SuccessAction.SuccessActionType.valueOf(type.toUpperCase()));
+        }
+
+        // TODO multiple source description handling
+        boolean workflowIdRequired = SuccessAction.SuccessActionType.GOTO.getValue().equalsIgnoreCase(type);
+        String workflowId = getString("workflowId", node, workflowIdRequired, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId))) {
+            successAction.setWorkflowId(workflowId);
+        }
+
+        // TODO XOR constraints
+        boolean stepIdRequired = SuccessAction.SuccessActionType.GOTO.getValue().equalsIgnoreCase(type);
+        String stepId = getString("stepId", node, stepIdRequired, location, parseResult);
+        if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId))
+                || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(stepId))) {
+            successAction.setStepId(stepId);
+        }
+
+        ArrayNode criteriaArray = getArray("criteria", node, false, location, parseResult);
+        if (Objects.nonNull(criteriaArray) && !criteriaArray.isEmpty()) {
+            successAction.setCriteria(getCriteriaList(criteriaArray, location, parseResult));
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            successAction.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("SUCCESS_ACTION_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return successAction;
+    }
+
+    private List<ArazzoSpecification.Workflow.Step.Criterion> getCriteriaList(
+            final ArrayNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        List<ArazzoSpecification.Workflow.Step.Criterion> criteria = new ArrayList<>();
+        ArazzoSpecification.Workflow.Step.Criterion criterion = null;
+
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                criterion = getCriterion((ObjectNode) item, location, parseResult);
+                if (Objects.nonNull(criterion)) {
+                    criteria.add(criterion);
+                }
+            }
+        }
+
+        return criteria;
+    }
+
+    private ArazzoSpecification.Workflow.Step.Criterion getCriterion(final ObjectNode node,
+                                                                     final String location,
+                                                                     final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        ArazzoSpecification.Workflow.Step.Criterion criterion =
+                ArazzoSpecification.Workflow.Step.Criterion.builder().build();
+
+        String condition = getString("condition", node, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(condition)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(condition)) {
+            criterion.setCondition(condition);
+        }
+
+        String context = getString("context", node, false, location, parseResult);
+        if ( parseResult.isAllowEmptyStrings() && Objects.nonNull(context)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(context)) {
+            criterion.setContext(context);
+        }
+        String typeAsString = getString("type", node, false, location, parseResult);
+        if ( parseResult.isAllowEmptyStrings() && Objects.nonNull(context)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(context)) {
+            ArazzoSpecification.Workflow.Step.Criterion.CriterionType type =
+                    ArazzoSpecification.Workflow.Step.Criterion.CriterionType.valueOf(typeAsString.toUpperCase());
+            criterion.setType(type);
+        } else {
+            criterion.setType(ArazzoSpecification.Workflow.Step.Criterion.CriterionType.SIMPLE);
+        }
+
+        // TODO operator validation
+        // TODO context expression handling based on type
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            criterion.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("CRITERION_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return criterion;
+    }
+
     private Map<String, ArazzoSpecification.Workflow.Step.Parameter> getParameters(final ObjectNode obj, final String location, final ParseResult parseResult, final boolean underComponents) {
         if (Objects.isNull(obj)) {
             return null;
         }
+
         Map<String, ArazzoSpecification.Workflow.Step.Parameter> parameters = new LinkedHashMap<>();
         Set<String> filter = new HashSet<>();
         ArazzoSpecification.Workflow.Step.Parameter parameter = null;

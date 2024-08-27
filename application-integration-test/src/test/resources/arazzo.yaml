@@ -86,3 +86,4 @@ components:
       criteria:
         # assertions to determine if this action should be executed
         - condition: $statusCode == 500
+  x-hugo-b: HugoB

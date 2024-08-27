@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -16,6 +17,7 @@ public class SuccessAction {
     private String workflowId;
     private String stepId;
     private List<ArazzoSpecification.Workflow.Step.Criterion> criteria;
+    private Map<String, Object> extensions;
 
     @Getter
     @AllArgsConstructor

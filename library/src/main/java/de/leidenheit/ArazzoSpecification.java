@@ -126,7 +126,19 @@ public class ArazzoSpecification {
             public static class Criterion {
                 private String condition;
                 private String context;
-                private String type;
+                private CriterionType type;
+                private Map<String, Object> extensions;
+
+                @Getter
+                @AllArgsConstructor
+                public enum CriterionType {
+                    SIMPLE("simple"),
+                    REGEX("regex"),
+                    JSON_PATH("jsonpath"),
+                    XPATH("xpath");
+
+                    private final String value;
+                }
             }
 
         }

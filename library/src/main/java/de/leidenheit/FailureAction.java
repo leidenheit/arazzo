@@ -3,7 +3,9 @@ package de.leidenheit;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -15,9 +17,10 @@ public class FailureAction {
     private FailureActionType type;
     private String workflowId;
     private String stepId;
-    private Float retryAfter; // non negative
+    private BigDecimal retryAfter; // non negative
     private Integer retryLimit; // non negative
     private List<ArazzoSpecification.Workflow.Step.Criterion> criteria;
+    private Map<String, Object> extensions;
 
     @Getter
     @AllArgsConstructor
