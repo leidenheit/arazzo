@@ -70,8 +70,12 @@ public class ArazzoSpecification {
         private String summary;
         private String description;
         private Schema<?> inputs;
+        private List<String> dependsOn;
         private List<Step> steps;
+        private List<SuccessAction> successActions;
+        private List<FailureAction> failureActions;
         private Map<String, Object> outputs;
+        private List<Step.Parameter> parameters;
         private Map<String, Object> extensions;
 
         @Data
@@ -82,17 +86,15 @@ public class ArazzoSpecification {
         public static class Step {
             private String stepId;
             private String operationId;
-            private String operationRef;
-            private Operation operation;
+            private String operationPath;
             private String description;
             private String dependsOn;
-            @JsonIgnore
-            private Workflow workflow;
             private List<Parameter> parameters;
             private List<Criterion> successCriteria;
             private Map<String, String> outputs;
             private List<SuccessAction> onSuccess;
             private List<FailureAction> onFailure;
+            private Map<String, Object> extensions;
 
             @Data
             @Builder

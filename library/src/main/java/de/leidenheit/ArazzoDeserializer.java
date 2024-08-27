@@ -2,20 +2,9 @@ package de.leidenheit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.media.ArraySchema;
-import io.swagger.v3.oas.models.media.ComposedSchema;
-import io.swagger.v3.oas.models.media.MapSchema;
-import io.swagger.v3.oas.models.media.ObjectSchema;
-import io.swagger.v3.oas.models.media.Schema;
-import io.swagger.v3.oas.models.media.XML;
+import com.fasterxml.jackson.databind.node.*;
+import io.swagger.v3.oas.models.media.*;
 import io.swagger.v3.parser.ResolverCache;
-import io.swagger.v3.parser.util.OpenAPIDeserializer;
 import io.swagger.v3.parser.util.SchemaTypeUtil;
 import org.apache.commons.lang3.StringUtils;
 
@@ -25,22 +14,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.ParseException;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.ServiceLoader;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,7 +35,14 @@ public class ArazzoDeserializer {
             "name", "url", "type", "extensions"
     ));
     protected static Set<String> WORKFLOW_KEYS = new LinkedHashSet<>(List.of(
-            "workflowId", "summary", "description", "inputs", "steps", "outputs", "extensions"
+            "workflowId", "summary", "description", "inputs",
+            "dependsOn", "steps", "successActions" , "failureActions" ,
+            "outputs", "parameters", "extensions"
+    ));
+    protected static Set<String> STEP_KEYS = new LinkedHashSet<>(List.of(
+            "description", "stepId", "operationId", "operationPath",
+            "workflowId", "parameters", "requestBody", "successCriteria",
+            "onSuccess", "onFailure", "outputs", "extensions"
     ));
     protected static Set<String> SCHEMA_KEYS = new LinkedHashSet<>(List.of(
             "$ref", "title", "multipleOf", "maximum", "format", "exclusiveMaximum",
@@ -105,6 +86,7 @@ public class ArazzoDeserializer {
         keys10.put("INFO_KEYS", INFO_KEYS);
         keys10.put("SOURCE_DESCRIPTION_KEYS", SOURCE_DESCRIPTION_KEYS);
         keys10.put("WORKFLOW_KEYS", WORKFLOW_KEYS);
+        keys10.put("STEP_KEYS", STEP_KEYS);
         keys10.put("SCHEMA_KEYS", SCHEMA_KEYS);
         keys10.put("XML_KEYS", XML_KEYS);
         keys10.put("COMPONENTS_KEYS", COMPONENTS_KEYS);
@@ -647,7 +629,7 @@ public class ArazzoDeserializer {
             final String path) {
         List<ArazzoSpecification.Workflow> workflows = new ArrayList<>();
         if (Objects.isNull(node)) {
-            return null;
+            return Collections.emptyList();
         }
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
@@ -667,7 +649,7 @@ public class ArazzoDeserializer {
             final String path) {
         List<ArazzoSpecification.SourceDescription> sourceDescriptions = new ArrayList<>();
         if (Objects.isNull(node)) {
-            return null;
+            return Collections.emptyList();
         }
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
@@ -715,9 +697,104 @@ public class ArazzoDeserializer {
             workflow.setInputs(getSchema(inputsObj, String.format("%s.%s", location, "inputs"), parseResult));
         }
 
-        // TODO read other fields
+        ArrayNode dependsOnArray = getArray("dependsOn", node, false, location, parseResult);
+        if (Objects.nonNull(dependsOnArray) && !dependsOnArray.isEmpty()) {
+            workflow.setDependsOn(getDependsOnList(dependsOnArray, String.format("%s.%s", location, "dependsOn"), parseResult, path));
+        }
+
+        // TODO steps
+        ArrayNode stepsArray = getArray("steps", node, true, location, parseResult);
+        if (Objects.nonNull(stepsArray) && !stepsArray.isEmpty()) {
+            workflow.setSteps(getStepsList(stepsArray, String.format("%s.%s", location, "steps"), parseResult));
+        }
+
+        // TODO successActions
+        // TODO failureActions
+        // TODO outputs
+        // TODO parameters
 
         return workflow;
+    }
+
+    private List<ArazzoSpecification.Workflow.Step> getStepsList(final ArrayNode node,
+                                                                 final String location,
+                                                                 final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return Collections.emptyList();
+        }
+
+        ArrayList<ArazzoSpecification.Workflow.Step> steps = new ArrayList<>();
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                ArazzoSpecification.Workflow.Step step = getStep((ObjectNode) item, location, parseResult);
+                if (Objects.nonNull(step)) {
+                    steps.add(step);
+                }
+            }
+        }
+
+
+        return steps;
+    }
+
+    private ArazzoSpecification.Workflow.Step getStep(final ObjectNode node,
+                                                      final String location,
+                                                      final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+        ArazzoSpecification.Workflow.Step step = ArazzoSpecification.Workflow.Step.builder().build();
+
+        String description = getString("description", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(description)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(description)) {
+            step.setDescription(description);
+        }
+
+        String stepId = getString("stepId", node, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(stepId)) {
+            // TODO regex validation
+            step.setStepId(stepId);
+        }
+
+        String operationId = getString("operationId", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(operationId)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(operationId)) {
+            step.setOperationId(operationId);
+        }
+
+        String operationPath = getString("operationPath", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(operationPath)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(operationPath)) {
+            step.setOperationPath(operationPath);
+        }
+
+        String workflowId = getString("workflowId", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId)) {
+            step.setOperationPath(workflowId);
+        }
+
+        // TODO other fields
+
+        return step;
+    }
+
+    private List<String> getDependsOnList(final ArrayNode node, final String location, final ParseResult parseResult, final String path) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+
+        List<String> dependsOn = new ArrayList<>();
+
+        for (JsonNode item : node) {
+            if (JsonNodeType.STRING.equals(item.getNodeType())) {
+                dependsOn.add(item.asText());
+                // TODO validation that this value is a known workflowId
+            }
+        }
+        return dependsOn;
     }
 
     private ArazzoSpecification.SourceDescription getSourceDescription(

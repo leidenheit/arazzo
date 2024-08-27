@@ -52,6 +52,9 @@ workflows:
           ateCookie: $response.body
     outputs:
       available: $steps.eatCookieStep.ateCookie
+    dependsOn:
+      - dummyWorkflow1
+      - dummyWorkflow2
 components:
   parameters:
     id:
