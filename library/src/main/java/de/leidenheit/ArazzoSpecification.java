@@ -1,14 +1,13 @@
 package de.leidenheit;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.media.Schema;
 import lombok.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -74,7 +73,7 @@ public class ArazzoSpecification {
         private List<Step> steps;
         private List<SuccessAction> successActions;
         private List<FailureAction> failureActions;
-        private Map<String, Object> outputs;
+        private Map<String, String> outputs;
         private List<Step.Parameter> parameters;
         private Map<String, Object> extensions;
 

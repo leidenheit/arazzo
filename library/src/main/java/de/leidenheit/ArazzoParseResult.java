@@ -13,9 +13,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ArazzoParseResult {
+    private boolean valid = true;
+    private boolean invalid;
     private List<String> messages;
     private ArazzoSpecification arazzo;
-    private boolean invalid;
 
     public static ArazzoParseResult ofError(final String errorMessage) {
         return ArazzoParseResult.builder()

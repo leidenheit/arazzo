@@ -38,6 +38,10 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
             }
              */
             var options = ArazzoParseOptions.builder()
+                    .oaiAuthor(false)
+                    .allowEmptyStrings(false)
+                    .inferSchemaType(true)
+                    .validateInternalRefs(true)
                     .resolve(true)
                     .build();
             var result = arazzoParser.readLocation(arazzoPath, options);
