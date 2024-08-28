@@ -84,17 +84,41 @@ public class ArazzoSpecification {
         @NoArgsConstructor
         @JsonIgnoreProperties(ignoreUnknown = true)
         public static class Step {
+            private String description;
             private String stepId;
             private String operationId;
             private String operationPath;
-            private String description;
-            private String dependsOn;
+            private String workflowId;
             private List<Parameter> parameters;
+            private RequestBody requestBody;
             private List<Criterion> successCriteria;
-            private Map<String, String> outputs;
             private List<SuccessAction> onSuccess;
             private List<FailureAction> onFailure;
+            private Map<String, String> outputs;
             private Map<String, Object> extensions;
+
+            @Data
+            @Builder
+            @NoArgsConstructor
+            @AllArgsConstructor
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            public static class RequestBody {
+                private String contentType;
+                private Object payload;
+                private List<PayloadReplacementObject> replacements;
+                private Map<String, Object> extensions;
+
+                @Data
+                @Builder
+                @NoArgsConstructor
+                @AllArgsConstructor
+                @JsonIgnoreProperties(ignoreUnknown = true)
+                public static class PayloadReplacementObject {
+                    private String target;
+                    private Object value;
+                    private Map<String, Object> extensions;
+                }
+            }
 
             @Data
             @Builder

@@ -70,6 +70,15 @@ public class ArazzoDeserializer {
     protected static Set<String> CRITERION_KEYS = new LinkedHashSet<>(List.of(
             "context", "condition", "type", "extensions"
     ));
+    protected static Set<String> REQUEST_BODY_KEYS = new LinkedHashSet<>(List.of(
+            "contentType", "payload", "replacements", "extensions"
+    ));
+    protected static Set<String> PAYLOAD_REPLACEMENT_OBJECT_KEYS = new LinkedHashSet<>(List.of(
+            "target", "value", "extensions"
+    ));
+    protected static Set<String> REUSABLE_OBJECT_KEYS = new LinkedHashSet<>(List.of(
+            "reference", "value"
+    ));
     // TODO others
 
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
@@ -94,6 +103,9 @@ public class ArazzoDeserializer {
         keys10.put("SUCCESS_ACTION_KEYS", SUCCESS_ACTION_KEYS);
         keys10.put("FAILURE_ACTION_KEYS", FAILURE_ACTION_KEYS);
         keys10.put("CRITERION_KEYS", CRITERION_KEYS);
+        keys10.put("REQUEST_BODY_KEYS", REQUEST_BODY_KEYS);
+        keys10.put("PAYLOAD_REPLACEMENT_OBJECT_KEYS", PAYLOAD_REPLACEMENT_OBJECT_KEYS);
+        keys10.put("REUSABLE_OBJECT_KEYS", REUSABLE_OBJECT_KEYS);
         // TODO others
 
         KEYS.put("arazzo10", keys10);
@@ -185,7 +197,7 @@ public class ArazzoDeserializer {
 
             // components (https://spec.openapis.org/arazzo/latest.html#components-object)
             ObjectNode componentsObj = getObject("components", rootNode, false, location, parseResult);
-            if (componentsObj != null) {
+            if (Objects.nonNull(componentsObj)) {
                 this.components = getComponents(componentsObj, "components", parseResult, path);
                 arazzo.setComponents(components);
 //                if(parseResult.validateInternalRefs) {
@@ -647,10 +659,10 @@ public class ArazzoDeserializer {
             final String location,
             final ParseResult parseResult,
             final String path) {
-        List<ArazzoSpecification.SourceDescription> sourceDescriptions = new ArrayList<>();
         if (Objects.isNull(node)) {
             return Collections.emptyList();
         }
+        List<ArazzoSpecification.SourceDescription> sourceDescriptions = new ArrayList<>();
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
                 ArazzoSpecification.SourceDescription sourceDescription = getSourceDescription((ObjectNode) item, location, parseResult, path);
@@ -702,7 +714,6 @@ public class ArazzoDeserializer {
             workflow.setDependsOn(getDependsOnList(dependsOnArray, String.format("%s.%s", location, "dependsOn"), parseResult, path));
         }
 
-        // TODO steps
         ArrayNode stepsArray = getArray("steps", node, true, location, parseResult);
         if (Objects.nonNull(stepsArray) && !stepsArray.isEmpty()) {
             workflow.setSteps(getStepsList(stepsArray, String.format("%s.%s", location, "steps"), parseResult));
@@ -732,7 +743,6 @@ public class ArazzoDeserializer {
                 }
             }
         }
-
 
         return steps;
     }
@@ -776,9 +786,290 @@ public class ArazzoDeserializer {
             step.setOperationPath(workflowId);
         }
 
-        // TODO other fields
+        ArrayNode parameterArray = getArray("parameters", node, false, location, parseResult);
+        if (Objects.nonNull(parameterArray) && !parameterArray.isEmpty()) {
+            step.setParameters(getParameterList(parameterArray, String.format("%s.%s", location, "parameters"), parseResult));
+        }
+
+        ObjectNode requestBodyObj = getObject("requestBody", node, false, location, parseResult);
+        if (Objects.nonNull(requestBodyObj)) {
+            step.setRequestBody(getRequestBody(requestBodyObj, String.format("%s.%s", location, "requestBody"), parseResult));
+        }
+
+        ArrayNode successCriteriaArray = getArray("successCriteria", node, false, location, parseResult);
+        if (Objects.nonNull(successCriteriaArray) && !successCriteriaArray.isEmpty()) {
+            step.setSuccessCriteria(getCriteriaList(successCriteriaArray, location, parseResult));
+        }
+
+        ArrayNode onSuccessArray = getArray("onSuccess", node, false, location, parseResult);
+        if (Objects.nonNull(onSuccessArray) && !onSuccessArray.isEmpty()) {
+            step.setOnSuccess(getSuccessActionList(onSuccessArray, location, parseResult));
+        }
+
+        ArrayNode onFailureArray = getArray("onFailure", node, false, location, parseResult);
+        if (Objects.nonNull(onFailureArray) && !onFailureArray.isEmpty()) {
+            step.setOnFailure(getFailureActionList(onFailureArray, location, parseResult));
+        }
+
+        ObjectNode outputsObj = getObject("outputs", node, false, location, parseResult);
+        if (Objects.nonNull(outputsObj)) {
+            step.setOutputs(getOutputs(outputsObj, String.format("%s.%s", location, "outputs"), parseResult));
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            step.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("STEP_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
 
         return step;
+    }
+
+    private Map<String, String> getOutputs(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult) {
+
+        if (Objects.isNull(node)) {
+            return Collections.emptyMap();
+        }
+
+        Map<String, String> outputs = new HashMap<>();
+
+        if (JsonNodeType.OBJECT.equals(node.getNodeType())) {
+            Set<String> keys = getKeys(node);
+            for (String key : keys) {
+                String expression = node.asText();
+                outputs.put(key, expression);
+            }
+        } else {
+            parseResult.invalidType(location, "outputs", "object", node);
+            parseResult.invalid();
+        }
+
+        return outputs;
+    }
+
+    private List<FailureAction> getFailureActionList(
+            final ArrayNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return Collections.emptyList();
+        }
+
+        List<FailureAction> failureActionList = new ArrayList<>();
+
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                // TODO use this reusable object handling to other places where reusable objects are possible values
+                if (item.has("reference")) {
+                    ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
+                    // TODO resolve and add to result
+                    parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
+                } else {
+                    FailureAction failureAction = getFailureAction((ObjectNode) item, location, parseResult);
+                    if (Objects.nonNull(failureAction)) {
+                        failureActionList.add(failureAction);
+                    }
+                }
+            }
+        }
+
+        return failureActionList;
+    }
+
+    private List<SuccessAction> getSuccessActionList(
+            final ArrayNode node, final String location, final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return Collections.emptyList();
+        }
+
+        List<SuccessAction> successActionList = new ArrayList<>();
+
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                // TODO use this reusable object handling to other places where reusable objects are possible values
+                if (item.has("reference")) {
+                    ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
+                    // TODO resolve and add to result
+                    parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
+                } else {
+                    SuccessAction successAction = getSuccessAction((ObjectNode) item, location, parseResult);
+                    if (Objects.nonNull(successAction)) {
+                        successActionList.add(successAction);
+                    }
+                }
+            }
+        }
+
+        return successActionList;
+    }
+
+    private ReusableObject getReusableObject(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+        ReusableObject reusableObject = ReusableObject.builder().build();
+
+        String reference = getString("reference", node, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(reference)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(reference)) {
+            reusableObject.setReference(reference);
+        }
+
+        String value = getString("value", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(value)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(value)) {
+            reusableObject.setValue(value);
+        }
+
+        return reusableObject;
+    }
+
+    private ArazzoSpecification.Workflow.Step.RequestBody getRequestBody(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+        ArazzoSpecification.Workflow.Step.RequestBody requestBody = ArazzoSpecification.Workflow.Step.RequestBody.builder().build();
+
+        String contentType = getString("contentType", node, false, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(contentType)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(contentType)) {
+            requestBody.setContentType(contentType);
+        }
+
+        JsonNode payloadNode = node.get("playload");
+        if (Objects.nonNull(payloadNode)) {
+            requestBody.setPayload(getPlayload(payloadNode, location, parseResult));
+        }
+
+        ArrayNode payloadReplacementObjectArray = getArray("replacements", node, false, location, parseResult);
+        if (Objects.nonNull(payloadReplacementObjectArray)) {
+            requestBody.setReplacements(getPayloadReplacementObjectList(payloadReplacementObjectArray, String.format("%s.%s", location, "payloadReplacementObject"), parseResult));
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            requestBody.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("REQUEST_BODY_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return requestBody;
+    }
+
+    private Object getPlayload(
+            final JsonNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return null;
+        }
+        if (node.isTextual()) {
+            return node.asText();
+        } else if (node.isObject()) {
+            return node;
+        }
+        parseResult.invalidType(location, "payload", "string|object", node);
+        parseResult.invalid();
+        return null;
+    }
+
+    private List<ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject> getPayloadReplacementObjectList(
+            final ArrayNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node) || node.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject> payloadReplacementObjects = new ArrayList<>();
+
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject payloadReplacementObject = getPayloadReplacementObject((ObjectNode) item, location, parseResult);
+                if (Objects.nonNull(payloadReplacementObject)) {
+                    payloadReplacementObjects.add(payloadReplacementObject);
+                }
+            }
+        }
+
+        return payloadReplacementObjects;
+    }
+
+    private ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject getPayloadReplacementObject(
+            final ObjectNode node,
+            final String location,
+            final ParseResult parseResult) {
+
+        ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject payloadReplacementObject = ArazzoSpecification.Workflow.Step.RequestBody.PayloadReplacementObject.builder().build();
+
+        String target = getString("target", node, true, location, parseResult);
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(target)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(target)) {
+            payloadReplacementObject.setTarget(target);
+        }
+
+        JsonNode valueNode = node.get("value");
+        if (Objects.nonNull(valueNode)) {
+            payloadReplacementObject.setValue(valueNode);
+        }
+
+        Map<String, Object> extensions = getExtensions(node);
+        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            payloadReplacementObject.setExtensions(extensions);
+        }
+
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("PAYLOAD_REPLACEMENT_OBJECT_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
+
+        return payloadReplacementObject;
+    }
+
+    private List<ArazzoSpecification.Workflow.Step.Parameter> getParameterList(
+            final ArrayNode node,
+            final String location,
+            final ParseResult parseResult) {
+        if (Objects.isNull(node)) {
+            return Collections.emptyList();
+        }
+        List<ArazzoSpecification.Workflow.Step.Parameter> parameters = new ArrayList<>();
+        for (JsonNode item : node) {
+            if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
+                ArazzoSpecification.Workflow.Step.Parameter parameter = getParameter((ObjectNode) item, location, parseResult);
+                if (Objects.nonNull(parameters)) {
+                    parameters.add(parameter);
+                }
+            }
+        }
+        return parameters;
     }
 
     private List<String> getDependsOnList(final ArrayNode node, final String location, final ParseResult parseResult, final String path) {
