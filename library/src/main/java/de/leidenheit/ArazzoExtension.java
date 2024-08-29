@@ -88,7 +88,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
         JsonNode inputsValueNode = new ObjectMapper().readTree(contentAsString);
         var inputs = ArazzoInputsReader.validateAndParseInputs(inputsSchemaNode, inputsValueNode);
         System.out.printf("inputs: %s%n", inputs.toString());
-        ArazzoInputsResolver resolver = new ArazzoInputsResolver();
+        ArazzoInputsResolver resolver = new ArazzoInputsResolver(inputs);
+        supportedParameterTypes.put(ArazzoInputsResolver.class, resolver);
 
         ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, resolver);
 

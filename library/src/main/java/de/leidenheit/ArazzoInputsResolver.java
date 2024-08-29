@@ -1,14 +1,17 @@
 package de.leidenheit;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ArazzoInputsResolver {
 
-    private Map<String, Object> inputs = new LinkedHashMap<>();
+    private final Map<String, Object> inputs;
 
-    public Object resolveInput(final String keyPath) {
-        return null; // TODO
+    public ArazzoInputsResolver(final Map<String, Object> inputs) {
+        this.inputs = inputs;
+    }
+
+    public Object resolve(final String keyPath) {
+        return getNestedValue(keyPath);
     }
 
     private Object getNestedValue(final String key) {
