@@ -3,22 +3,24 @@ package de.leidenheit;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.*;
-import io.swagger.v3.oas.models.media.*;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.parser.ResolverCache;
-import io.swagger.v3.parser.util.SchemaTypeUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.text.ParseException;
-import java.time.OffsetDateTime;
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+// TODO finalize implementation:
+//  - validation
+//  - reference resolving
+//  - refactoring
 @SuppressWarnings("java:S1192") // magic strings
 public class ArazzoDeserializer {
 
@@ -72,7 +74,6 @@ public class ArazzoDeserializer {
             "format"
     ));
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
-    // TODO introduce check for valid node types
     protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(List.of(
             JsonNodeType.OBJECT, JsonNodeType.STRING
     ));
@@ -99,7 +100,6 @@ public class ArazzoDeserializer {
         KEYS.put("arazzo10", keys10);
     }
 
-    private static final Pattern RFC3339_DATE_PATTERN = Pattern.compile("^(\\d{4})-(\\d{2})-(\\d{2})$");
     private static final int MAX_EXTENSION_ENTRIES = 20;
 
     // Holds extensions to a given classloader. Implemented as a least-recently used cache
@@ -115,7 +115,6 @@ public class ArazzoDeserializer {
     private Map<String, Object> rootMap;
     private String basePath;
     private final Set<String> workflowIds = new HashSet<>();
-    private Map<String, String> localSchemaRefs = new HashMap<>(); // TODO remove since no use case
 
     public ArazzoParseResult deserialize(final JsonNode node, final String path, final ArazzoParseOptions options) {
         basePath = path;
@@ -202,8 +201,6 @@ public class ArazzoDeserializer {
                 }
                 validateReservedKeywords(specKeys, key, location, parseResult);
             }
-
-            // TODO reference handling
         } else {
             parseResult.invalidType(location, "arazzo", "object", rootNode);
             parseResult.invalid();
@@ -313,7 +310,6 @@ public class ArazzoDeserializer {
             failureAction.setType(FailureAction.FailureActionType.valueOf(type.toUpperCase()));
         }
 
-        // TODO multiple source description handling
         boolean workflowIdRequired = FailureAction.FailureActionType.GOTO.getValue().equalsIgnoreCase(type);
         String workflowId = getString("workflowId", node, workflowIdRequired, location, parseResult);
         if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId))
@@ -321,7 +317,6 @@ public class ArazzoDeserializer {
             failureAction.setWorkflowId(workflowId);
         }
 
-        // TODO XOR constraints
         boolean stepIdRequired = FailureAction.FailureActionType.GOTO.getValue().equalsIgnoreCase(type);
         String stepId = getString("stepId", node, stepIdRequired, location, parseResult);
         if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId))
@@ -419,7 +414,6 @@ public class ArazzoDeserializer {
             successAction.setType(SuccessAction.SuccessActionType.valueOf(type.toUpperCase()));
         }
 
-        // TODO multiple source description handling
         boolean workflowIdRequired = SuccessAction.SuccessActionType.GOTO.getValue().equalsIgnoreCase(type);
         String workflowId = getString("workflowId", node, workflowIdRequired, location, parseResult);
         if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId))
@@ -427,7 +421,6 @@ public class ArazzoDeserializer {
             successAction.setWorkflowId(workflowId);
         }
 
-        // TODO XOR constraints
         boolean stepIdRequired = SuccessAction.SuccessActionType.GOTO.getValue().equalsIgnoreCase(type);
         String stepId = getString("stepId", node, stepIdRequired, location, parseResult);
         if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId))
@@ -511,9 +504,6 @@ public class ArazzoDeserializer {
             criterion.setType(ArazzoSpecification.Workflow.Step.Criterion.CriterionType.SIMPLE);
         }
 
-        // TODO operator validation
-        // TODO context expression handling based on type
-
         Map<String, Object> extensions = getExtensions(node);
         if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
             criterion.setExtensions(extensions);
@@ -540,7 +530,6 @@ public class ArazzoDeserializer {
         Set<String> filter = new HashSet<>();
         ArazzoSpecification.Workflow.Step.Parameter parameter = null;
 
-        // TODO this check should be applied to other places where regex validation is required
         Set<String> parameterKeys = getKeys(obj);
         for (String parameterName : parameterKeys) {
             if (underComponents) {
@@ -576,18 +565,15 @@ public class ArazzoDeserializer {
         String name = getString("name", obj, true, location, parseResult);
         if (parseResult.isAllowEmptyStrings() && Objects.nonNull(name)
                 || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(name)) {
-            // TODO add check for regex pattern and add a warning if not
             parameter.setName(name);
         }
 
         String in = getString("in", obj, false, location, parseResult);
         if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(in))
                 || (!parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(in))) {
-            // TODO add check for unsupported values and XOR constraints
             parameter.setIn(ArazzoSpecification.Workflow.Step.Parameter.ParameterEnum.valueOf(in.toUpperCase()));
         }
 
-        // TODO this field is required and there is not check yet
         Object value = getAnyType("value", obj, location, parseResult);
         if (Objects.isNull(value)) {
             parseResult.missing(location, "value");
@@ -666,7 +652,6 @@ public class ArazzoDeserializer {
         String workflowId = getString("workflowId", node, true, location, parseResult, workflowIds);
         if (parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId)
                 || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId)) {
-            // TODO add check for regex pattern and add a warning if not
             workflow.setWorkflowId(workflowId);
         }
 
@@ -684,7 +669,8 @@ public class ArazzoDeserializer {
 
         ObjectNode inputsObj = getObject("inputs", node, false, location, parseResult);
         if (inputsObj != null) {
-            workflow.setInputs(getSchema(inputsObj, String.format("%s.%s", location, "inputs"), parseResult));
+            // workflow.setInputs(getSchema(inputsObj, String.format("%s.%s", location, "inputs"), parseResult));
+            workflow.setInputs(inputsObj);
         }
 
         ArrayNode dependsOnArray = getArray("dependsOn", node, false, location, parseResult);
@@ -771,7 +757,6 @@ public class ArazzoDeserializer {
         String stepId = getString("stepId", node, true, location, parseResult);
         if (parseResult.isAllowEmptyStrings() && Objects.nonNull(stepId)
                 || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(stepId)) {
-            // TODO regex validation
             step.setStepId(stepId);
         }
 
@@ -1089,7 +1074,6 @@ public class ArazzoDeserializer {
         for (JsonNode item : node) {
             if (JsonNodeType.STRING.equals(item.getNodeType())) {
                 dependsOn.add(item.asText());
-                // TODO validation that this value is a known workflowId
             }
         }
         return dependsOn;
@@ -1370,45 +1354,6 @@ public class ArazzoDeserializer {
         return value;
     }
 
-    public static List<JsonSchemaParserExtension> getJsonSchemaParserExtensions() {
-        final ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-        final List<JsonSchemaParserExtension> extensions = getJsonSchemaParserExtensions(tccl);
-        final ClassLoader cl = JsonSchemaParserExtension.class.getClassLoader();
-        if (cl != tccl) {
-            extensions.addAll(getJsonSchemaParserExtensions(cl));
-        }
-        return extensions;
-    }
-
-    protected static List<JsonSchemaParserExtension> getJsonSchemaParserExtensions(ClassLoader cl) {
-        if (jsonSchemaParserExtensionMap.containsKey(cl)) {
-            return jsonSchemaParserExtensionMap.get(cl);
-        }
-
-        final List<JsonSchemaParserExtension> extensions = new ArrayList<>();
-        final ServiceLoader<JsonSchemaParserExtension> loader = ServiceLoader.load(JsonSchemaParserExtension.class, cl);
-        for (JsonSchemaParserExtension extension : loader) {
-            extensions.add(extension);
-        }
-
-        // don't cache null-Value classLoader (e.g. Bootstrap Classloader)
-        if (cl != null) {
-            jsonSchemaParserExtensionMap.put(cl, extensions);
-        }
-        return extensions;
-    }
-
-    public String mungedRef(String refString) {
-        // Ref: IETF RFC 3966, Section 5.2.2
-        if (!refString.contains(":") &&   // No scheme
-                !refString.startsWith("#") && // Path is not empty
-                !refString.startsWith("/") && // Path is not absolute
-                refString.indexOf(".") > 0) { // Path does not start with dot but contains "." (file extension)
-            return "./" + refString;
-        }
-        return null;
-    }
-
     public String inferTypeFromArray(ArrayNode an) {
         if (an.size() == 0) {
             return "string";
@@ -1472,7 +1417,6 @@ public class ArazzoDeserializer {
         return value;
     }
 
-
     public Integer getInteger(String key, ObjectNode node, boolean required, String location, ParseResult result) {
         Integer value = null;
         JsonNode v = node.get(key);
@@ -1529,614 +1473,16 @@ public class ArazzoDeserializer {
         return null;
     }
 
-
-    public XML getXml(ObjectNode node, String location, ParseResult result) {
-        if (node == null) {
+    public Map<String, JsonNode> getSchemas(final ObjectNode node,
+                                              final String location,
+                                              final ParseResult result,
+                                              final boolean underComponents) {
+        if (Objects.isNull(node)) {
             return null;
         }
-        XML xml = new XML();
-
-        String value = getString("name", node, false, String.format("%s.%s", location, "name"), result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            xml.setName(value);
-        }
-
-        value = getString("namespace", node, false, String.format("%s.%s", location, "namespace"), result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            xml.setNamespace(value);
-        }
-
-        value = getString("prefix", node, false, String.format("%s.%s", location, "prefix"), result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            xml.setPrefix(value);
-        }
-
-        Boolean attribute = getBoolean("attribute", node, false, location, result);
-        if (attribute != null) {
-            xml.setAttribute(attribute);
-        }
-
-        Boolean wrapped = getBoolean("wrapped", node, false, location, result);
-        if (wrapped != null) {
-            xml.setWrapped(wrapped);
-        }
-
-        Map<String, Object> extensions = getExtensions(node);
-        if (extensions != null && extensions.size() > 0) {
-            xml.setExtensions(extensions);
-        }
-
-
-        Set<String> keys = getKeys(node);
-        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
-        for (String key : keys) {
-            if (!specKeys.get("XML_KEYS").contains(key) && !key.startsWith("x-")) {
-                result.extra(location, key, node.get(key));
-            }
-            validateReservedKeywords(specKeys, key, location, result);
-        }
-
-
-        return xml;
-
-    }
-
-
-    protected void getCommonSchemaFields(ObjectNode node, String location, ParseResult result, Schema schema) {
-        String value = getString("title", node, false, location, result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            schema.setTitle(value);
-        }
-
-//        ObjectNode discriminatorNode = getObject("discriminator", node, false, location, result);
-//        if (discriminatorNode != null) {
-//            schema.setDiscriminator(getDiscriminator(discriminatorNode, location, result));
-//        }
-
-        BigDecimal bigDecimal = getBigDecimal("multipleOf", node, false, location, result);
-        if (bigDecimal != null) {
-            if (bigDecimal.compareTo(BigDecimal.ZERO) > 0) {
-                schema.setMultipleOf(bigDecimal);
-            } else {
-                result.warning(location, "multipleOf value must be > 0");
-            }
-        }
-
-        bigDecimal = getBigDecimal("maximum", node, false, location, result);
-        if (bigDecimal != null) {
-            schema.setMaximum(bigDecimal);
-        }
-
-        bigDecimal = getBigDecimal("minimum", node, false, location, result);
-        if (bigDecimal != null) {
-            schema.setMinimum(bigDecimal);
-        }
-
-        Integer integer = getInteger("minLength", node, false, location, result);
-        if (integer != null) {
-            schema.setMinLength(integer);
-        }
-
-        integer = getInteger("maxLength", node, false, location, result);
-        if (integer != null) {
-            schema.setMaxLength(integer);
-        }
-
-        String pattern = getString("pattern", node, false, location, result);
-        if (result.isAllowEmptyStrings() && pattern != null) {
-            schema.setPattern(pattern);
-        }
-
-        integer = getInteger("maxItems", node, false, location, result);
-        if (integer != null) {
-            schema.setMaxItems(integer);
-        }
-        integer = getInteger("minItems", node, false, location, result);
-        if (integer != null) {
-            schema.setMinItems(integer);
-        }
-
-        Boolean bool = getBoolean("uniqueItems", node, false, location, result);
-        if (bool != null) {
-            schema.setUniqueItems(bool);
-        }
-
-        integer = getInteger("maxProperties", node, false, location, result);
-        if (integer != null) {
-            schema.setMaxProperties(integer);
-        }
-
-        integer = getInteger("minProperties", node, false, location, result);
-        if (integer != null) {
-            schema.setMinProperties(integer);
-        }
-
-        ArrayNode required = getArray("required", node, false, location, result);
-        if (required != null) {
-            List<String> requiredList = new ArrayList<>();
-            for (JsonNode n : required) {
-                if (n.getNodeType().equals(JsonNodeType.STRING)) {
-                    requiredList.add(((TextNode) n).textValue());
-                } else {
-                    result.invalidType(location, "required", "string", n);
-                }
-            }
-            if (requiredList.size() > 0) {
-                schema.setRequired(requiredList);
-            }
-        }
-
-        value = getString("description", node, false, location, result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            schema.setDescription(value);
-        }
-
-        value = getString("format", node, false, location, result);
-        if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-            schema.setFormat(value);
-        }
-
-        bool = getBoolean("readOnly", node, false, location, result);
-        if (bool != null) {
-            schema.setReadOnly(bool);
-        }
-
-        bool = getBoolean("writeOnly", node, false, location, result);
-        if (bool != null) {
-            schema.setWriteOnly(bool);
-        }
-
-        bool =
-                Optional.ofNullable(getBoolean("writeOnly", node, false, location, result)).orElse(false) && Optional.ofNullable(getBoolean("readOnly", node, false, location, result)).orElse(false);
-        if (bool == true) {
-            result.warning(location, " writeOnly and readOnly are both present");
-
-        }
-
-        ObjectNode xmlNode = getObject("xml", node, false, location, result);
-        if (xmlNode != null) {
-            XML xml = getXml(xmlNode, location, result);
-            if (xml != null) {
-                schema.setXml(xml);
-            }
-        }
-
-//        ObjectNode externalDocs = getObject("externalDocs", node, false, location, result);
-//        if (externalDocs != null) {
-//            ExternalDocumentation docs = getExternalDocs(externalDocs, location, result);
-//            if (docs != null) {
-//                schema.setExternalDocs(docs);
-//            }
-//        }
-
-        Object example = getAnyType("example", node, location, result);
-        if (example != null) {
-            schema.setExample(example instanceof NullNode ? null : example);
-        }
-
-        bool = getBoolean("deprecated", node, false, location, result);
-        if (bool != null) {
-            schema.setDeprecated(bool);
-        }
-
-    }
-
-    private Object getDecodedObject(Schema schema, String objectString) throws ParseException {
-        Object object =
-                objectString == null ?
-                        null :
-
-                        "string".equals(schema.getType()) && "date".equals(schema.getFormat()) ?
-                                toDate(objectString) :
-
-                                "string".equals(schema.getType()) && "date-time".equals(schema.getFormat()) ?
-                                        toDateTime(objectString) :
-
-                                        "string".equals(schema.getType()) && "byte".equals(schema.getFormat()) ?
-                                                toBytes(objectString) :
-
-                                                objectString;
-
-        if (object == null && objectString != null) {
-            throw new ParseException(objectString, 0);
-        }
-
-        return object;
-    }
-
-    private OffsetDateTime toDateTime(String dateString) {
-
-        OffsetDateTime dateTime = null;
-        try {
-            dateTime = OffsetDateTime.parse(dateString);
-        } catch (Exception ignore) {
-        }
-
-        return dateTime;
-    }
-
-    /**
-     * Returns the Date represented by the given RFC3339 full-date string.
-     * Returns null if this string can't be parsed as Date.
-     */
-    private Date toDate(String dateString) {
-        Matcher matcher = RFC3339_DATE_PATTERN.matcher(dateString);
-
-        Date date = null;
-        if (matcher.matches()) {
-            String year = matcher.group(1);
-            String month = matcher.group(2);
-            String day = matcher.group(3);
-
-            try {
-                date =
-                        new Calendar.Builder()
-                                .setDate(Integer.parseInt(year), Integer.parseInt(month) - 1,
-                                        Integer.parseInt(day))
-                                .build()
-                                .getTime();
-            } catch (Exception ignore) {
-            }
-        }
-
-        return date;
-    }
-
-    /**
-     * Returns the byte array represented by the given base64-encoded string.
-     * Returns null if this string is not a valid base64 encoding.
-     */
-    private byte[] toBytes(String byteString) {
-        byte[] bytes;
-
-        try {
-            bytes = Base64.getDecoder().decode(byteString);
-        } catch (Exception e) {
-            bytes = null;
-        }
-
-        return bytes;
-    }
-
-    public Schema getSchema(JsonNode jsonNode, String location, ParseResult result) {
-        if (jsonNode == null) {
-            return null;
-        }
-        //Added to handle NPE from ResolverCache when Trying to dereference a schema
-        if (result == null) {
-            result = new ParseResult();
-            result.setAllowEmptyStrings(true);
-        }
-
-        Schema schema = null;
-        List<JsonSchemaParserExtension> jsonschemaExtensions = getJsonSchemaParserExtensions();
-
-        for (JsonSchemaParserExtension jsonschemaExtension : jsonschemaExtensions) {
-            schema = jsonschemaExtension.getSchema(jsonNode, location, result, rootMap, basePath);
-            if (schema != null) {
-                return schema;
-            }
-        }
-
-        ObjectNode node = null;
-        if (jsonNode.isObject()) {
-            node = (ObjectNode) jsonNode;
-        } else {
-            result.invalidType(location, "", "object", jsonNode);
-            return null;
-        }
-        ArrayNode oneOfArray = getArray("oneOf", node, false, location, result);
-        ArrayNode allOfArray = getArray("allOf", node, false, location, result);
-        ArrayNode anyOfArray = getArray("anyOf", node, false, location, result);
-        ObjectNode itemsNode = getObject("items", node, false, location, result);
-
-        if ((allOfArray != null) || (anyOfArray != null) || (oneOfArray != null)) {
-            ComposedSchema composedSchema = new ComposedSchema();
-
-            if (allOfArray != null) {
-
-                for (JsonNode n : allOfArray) {
-                    if (n.isObject()) {
-                        schema = getSchema((ObjectNode) n, location, result);
-                        composedSchema.addAllOfItem(schema);
-                    }
-                }
-                schema = composedSchema;
-            }
-            if (anyOfArray != null) {
-
-                for (JsonNode n : anyOfArray) {
-                    if (n.isObject()) {
-                        schema = getSchema((ObjectNode) n, location, result);
-                        composedSchema.addAnyOfItem(schema);
-                    }
-                }
-                schema = composedSchema;
-            }
-            if (oneOfArray != null) {
-
-                for (JsonNode n : oneOfArray) {
-                    if (n.isObject()) {
-                        schema = getSchema((ObjectNode) n, location, result);
-                        composedSchema.addOneOfItem(schema);
-                    }
-                }
-                schema = composedSchema;
-            }
-        }
-
-        if (itemsNode != null && result.isInferSchemaType()) {
-            ArraySchema items = new ArraySchema();
-            if (itemsNode.getNodeType().equals(JsonNodeType.OBJECT)) {
-                items.setItems(getSchema(itemsNode, location, result));
-            } else if (itemsNode.getNodeType().equals(JsonNodeType.ARRAY)) {
-                for (JsonNode n : itemsNode) {
-                    if (n.isValueNode()) {
-                        items.setItems(getSchema(itemsNode, location, result));
-                    }
-                }
-            }
-            schema = items;
-        } else if (itemsNode != null) {
-            Schema items = new Schema();
-            if (itemsNode.getNodeType().equals(JsonNodeType.OBJECT)) {
-                items.setItems(getSchema(itemsNode, location, result));
-            } else if (itemsNode.getNodeType().equals(JsonNodeType.ARRAY)) {
-                for (JsonNode n : itemsNode) {
-                    if (n.isValueNode()) {
-                        items.setItems(getSchema(itemsNode, location, result));
-                    }
-                }
-            }
-            schema = items;
-        }
-
-        Boolean additionalPropertiesBoolean = getBoolean("additionalProperties", node, false, location, result);
-
-        ObjectNode additionalPropertiesObject =
-                additionalPropertiesBoolean == null
-                        ? getObject("additionalProperties", node, false, location, result)
-                        : null;
-
-        Object additionalProperties =
-                additionalPropertiesObject != null
-                        ? getSchema(additionalPropertiesObject, location, result)
-                        : additionalPropertiesBoolean;
-
-        if (additionalProperties != null && result.isInferSchemaType()) {
-            if (schema == null) {
-                schema =
-                        additionalProperties.equals(Boolean.FALSE)
-                                ? new ObjectSchema()
-                                : new MapSchema();
-            }
-            schema.setAdditionalProperties(additionalProperties);
-        } else if (additionalProperties != null) {
-            if (schema == null) {
-                schema = new Schema();
-            }
-            schema.setAdditionalProperties(additionalProperties);
-        }
-
-        if (schema == null) {
-            schema = SchemaTypeUtil.createSchemaByType(node);
-        }
-
-        JsonNode ref = node.get("$ref");
-        if (ref != null) {
-            if (ref.getNodeType().equals(JsonNodeType.STRING)) {
-
-                if (location.startsWith("paths")) {
-                    try {
-                        String components[] = ref.asText().split("#/components");
-                        if ((ref.asText().startsWith("#/components")) && (components.length > 1)) {
-                            String[] childComponents = components[1].split("/");
-                            String[] newChildComponents = Arrays.copyOfRange(childComponents, 1,
-                                    childComponents.length);
-                            boolean isValidComponent = ReferenceValidator.valueOf(newChildComponents[0])
-                                    .validateComponent(this.components,
-                                            newChildComponents[1]);
-                            if (!isValidComponent) {
-                                result.missing(location, ref.asText());
-                            }
-                        }
-                    } catch (Exception e) {
-                        result.missing(location, ref.asText());
-                    }
-                }
-
-                String mungedRef = mungedRef(ref.textValue());
-                if (mungedRef != null) {
-                    schema.set$ref(mungedRef);
-                } else {
-                    schema.set$ref(ref.asText());
-                }
-                /* TODO currently only capable of validating if ref is to root schema withing #/components/schemas
-                 * need to evaluate json pointer instead to also allow validation of nested schemas
-                 * e.g. #/components/schemas/foo/properties/bar
-                 */
-                if (schema.get$ref().startsWith("#/components/schemas") && StringUtils.countMatches(schema.get$ref(), "/") == 3) {
-                    String refName = schema.get$ref().substring(schema.get$ref().lastIndexOf("/") + 1);
-                    localSchemaRefs.put(refName, location);
-                }
-                if (ref.textValue().startsWith("#/components") && !(ref.textValue().startsWith("#/components/schemas"))) {
-                    result.warning(location, "$ref target " + ref.textValue() + " is not of expected type Schema");
-                }
-                return schema;
-            } else {
-                result.invalidType(location, "$ref", "string", node);
-                return null;
-            }
-        }
-
-
-        getCommonSchemaFields(node, location, result, schema);
-        String value;
-        Boolean bool;
-
-        bool = getBoolean("exclusiveMaximum", node, false, location, result);
-        if (bool != null) {
-            schema.setExclusiveMaximum(bool);
-        }
-
-        bool = getBoolean("exclusiveMinimum", node, false, location, result);
-        if (bool != null) {
-            schema.setExclusiveMinimum(bool);
-        }
-
-
-        ArrayNode enumArray = getArray("enum", node, false, location, result);
-        if (enumArray != null) {
-            for (JsonNode n : enumArray) {
-                if (n.isNumber()) {
-                    schema.addEnumItemObject(n.numberValue());
-                } else if (n.isBoolean()) {
-                    schema.addEnumItemObject(n.booleanValue());
-                } else if (n.isValueNode()) {
-                    try {
-                        schema.addEnumItemObject(getDecodedObject(schema, n.asText(null)));
-                    } catch (ParseException e) {
-                        result.invalidType(location, String.format("enum=`%s`", e.getMessage()),
-                                schema.getFormat(), n);
-                    }
-                } else if (n.isContainerNode()) {
-                    schema.addEnumItemObject(n.isNull() ? null : n);
-                } else {
-                    result.invalidType(location, "enum", "value", n);
-                }
-            }
-        }
-
-        value = getString("type", node, false, location, result);
-        if (StringUtils.isBlank(schema.getType())) {
-            if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-                schema.setType(value);
-            } else if (result.isInferSchemaType()) {
-                // may have an enum where type can be inferred
-                JsonNode enumNode = node.get("enum");
-                if (enumNode != null && enumNode.isArray()) {
-                    String type = inferTypeFromArray((ArrayNode) enumNode);
-                    schema.setType(type);
-                }
-            }
-            if ("array".equals(schema.getType()) && schema.getItems() == null) {
-                result.missing(location, "items");
-            }
-        }
-
-        ObjectNode notObj = getObject("not", node, false, location, result);
-        if (notObj != null) {
-            Schema not = getSchema(notObj, location, result);
-            if (not != null) {
-                schema.setNot(not);
-            }
-        }
-
-
-        Map<String, Schema> properties = new LinkedHashMap<>();
-        ObjectNode propertiesObj = getObject("properties", node, false, location, result);
-        Schema property = null;
-
-        Set<String> keys = getKeys(propertiesObj);
-        for (String name : keys) {
-            JsonNode propertyValue = propertiesObj.get(name);
-            if (!propertyValue.getNodeType().equals(JsonNodeType.OBJECT)) {
-                result.invalidType(location, "properties", "object", propertyValue);
-            } else {
-                if (propertiesObj != null) {
-                    property = getSchema((ObjectNode) propertyValue, location, result);
-                    if (property != null) {
-                        properties.put(name, property);
-                    }
-                }
-            }
-        }
-        if (propertiesObj != null) {
-            schema.setProperties(properties);
-        }
-
-        //sets default value according to the schema type
-        if (node.get("default") != null && result.isInferSchemaType()) {
-            if (!StringUtils.isBlank(schema.getType())) {
-                if (schema.getType().equals("array")) {
-                    ArrayNode array = getArray("default", node, false, location, result);
-                    if (array != null) {
-                        schema.setDefault(array);
-                    }
-                } else if (schema.getType().equals("string")) {
-                    value = getString("default", node, false, location, result);
-                    if ((result.isAllowEmptyStrings() && value != null) || (!result.isAllowEmptyStrings() && !StringUtils.isBlank(value))) {
-                        try {
-                            schema.setDefault(getDecodedObject(schema, value));
-                        } catch (ParseException e) {
-                            result.invalidType(location, String.format("default=`%s`", e.getMessage()),
-                                    schema.getFormat(), node);
-                        }
-                    }
-                } else if (schema.getType().equals("boolean")) {
-                    bool = getBoolean("default", node, false, location, result);
-                    if (bool != null) {
-                        schema.setDefault(bool);
-                    }
-                } else if (schema.getType().equals("object")) {
-                    Object object = getObject("default", node, false, location, result);
-                    if (object != null) {
-                        schema.setDefault(object);
-                    }
-                } else if (schema.getType().equals("integer")) {
-                    Integer number = getInteger("default", node, false, location, result);
-                    if (number != null) {
-                        schema.setDefault(number);
-                    }
-                } else if (schema.getType().equals("number")) {
-                    BigDecimal number = getBigDecimal("default", node, false, location, result);
-                    if (number != null) {
-                        schema.setDefault(number);
-                    }
-                }
-            } else {
-                Object defaultObject = getAnyType("default", node, location, result);
-                if (defaultObject != null) {
-                    schema.setDefault(defaultObject);
-                }
-            }
-        } else if (node.get("default") != null) {
-            Object defaultObject = getAnyType("default", node, location, result);
-            if (defaultObject != null) {
-                schema.setDefault(defaultObject);
-            }
-        } else {
-            schema.setDefault(null);
-        }
-
-        bool = getBoolean("nullable", node, false, location, result);
-        if (bool != null) {
-            schema.setNullable(bool);
-        }
-
-        Map<String, Object> extensions = getExtensions(node);
-        if (extensions != null && extensions.size() > 0) {
-            schema.setExtensions(extensions);
-        }
+        Map<String, JsonNode> schemas = new LinkedHashMap<>();
 
         Set<String> schemaKeys = getKeys(node);
-        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
-        for (String key : schemaKeys) {
-            if (!specKeys.get("SCHEMA_KEYS").contains(key) && !key.startsWith("x-")) {
-                result.extra(location, key, node.get(key));
-            }
-        }
-        return schema;
-    }
-
-    public Map<String, Schema<?>> getSchemas(ObjectNode obj, String location, ParseResult result,
-                                             boolean underComponents) {
-        if (obj == null) {
-            return null;
-        }
-        Map<String, Schema<?>> schemas = new LinkedHashMap<>();
-
-        Set<String> schemaKeys = getKeys(obj);
         for (String schemaName : schemaKeys) {
             if (underComponents) {
                 if (!Pattern.matches("^[a-zA-Z0-9\\.\\-_]+$",
@@ -2145,15 +1491,11 @@ public class ArazzoDeserializer {
                             "^[a-zA-Z0-9\\.\\-_]+$");
                 }
             }
-            JsonNode schemaValue = obj.get(schemaName);
+            JsonNode schemaValue = node.get(schemaName);
             if (!schemaValue.getNodeType().equals(JsonNodeType.OBJECT)) {
                 result.invalidType(location, schemaName, "object", schemaValue);
             } else {
-                ObjectNode schema = (ObjectNode) schemaValue;
-                Schema schemaObj = getSchema(schema, String.format("%s.%s", location, schemaName), result);
-                if (schemaObj != null) {
-                    schemas.put(schemaName, schemaObj);
-                }
+                schemas.put(schemaName, schemaValue);
             }
         }
 

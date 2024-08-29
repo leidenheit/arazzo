@@ -54,6 +54,13 @@
             <version>2.17.2</version>
         </dependency>
 
+        <!-- everit -->
+        <dependency>
+            <groupId>org.everit.json</groupId>
+            <artifactId>org.everit.json.schema</artifactId>
+            <version>1.5.1</version>
+        </dependency>
+
         <!-- RestAssured for API Testing -->
         <!-- https://mvnrepository.com/artifact/io.rest-assured/rest-assured -->
         <dependency>

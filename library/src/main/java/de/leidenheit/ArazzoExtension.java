@@ -1,12 +1,17 @@
 package de.leidenheit;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import io.swagger.v3.parser.core.models.ParseOptions;
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.*;
 
+import java.io.File;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,8 +23,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
-        var openApiPath = System.getProperty("openapi.file", "src/test/resources/openapi.yaml");
-        var arazzoPath = System.getProperty("arazzo.file", "src/test/resources/arazzo.yaml");
+        var openApiPath = System.getProperty("openapi.file", "y");
+        var arazzoPath = System.getProperty("arazzo.file", "x");
 
         // parse and validate
         OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
@@ -59,27 +64,36 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 
     @Override
     public void beforeEach(final ExtensionContext context) throws Exception {
-            Method testMethod = context.getRequiredTestMethod();
-            if (!testMethod.isAnnotationPresent(Test.class)) {
-                throw new RuntimeException("Annotation @WithWorkflowExecution can only be applied to @Test annotated methods");
-            }
+        Method testMethod = context.getRequiredTestMethod();
+        if (!testMethod.isAnnotationPresent(Test.class)) {
+            throw new RuntimeException("Annotation @WithWorkflowExecution can only be applied to @Test annotated methods");
+        }
 
-            if (!testMethod.isAnnotationPresent(WithWorkflowExecutor.class)) {
-                throw new RuntimeException("Annotation @WithWorkflowExecution missing");
-            }
+        if (!testMethod.isAnnotationPresent(WithWorkflowExecutor.class)) {
+            throw new RuntimeException("Annotation @WithWorkflowExecution missing");
+        }
 
-            WithWorkflowExecutor withWorkflowExecutor = testMethod.getAnnotation(WithWorkflowExecutor.class);
-            var workflowId = withWorkflowExecutor.workflowId();
-            var workflow = arazzoSpecification.getWorkflows().stream()
-                    .filter(w -> workflowId.equals(w.getWorkflowId()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Workflow not found"));
+        WithWorkflowExecutor withWorkflowExecutor = testMethod.getAnnotation(WithWorkflowExecutor.class);
+        var workflowId = withWorkflowExecutor.workflowId();
+        var workflow = arazzoSpecification.getWorkflows().stream()
+                .filter(w -> workflowId.equals(w.getWorkflowId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
-            ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow);
 
-            supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
+        // TODO input loading and validation
+        JsonNode inputsSchemaNode = workflow.getInputs();
+        var arazzoInputs = System.getProperty("arazzo-inputs.file", "z");
+        var contentAsString = FileUtils.readFileToString(new File(arazzoInputs), StandardCharsets.UTF_8);
+        JsonNode inputsValueNode = new ObjectMapper().readTree(contentAsString);
+        var inputs = ArazzoInputsReader.validateAndParseInputs(inputsSchemaNode, inputsValueNode);
+        System.out.printf("inputs: %s%n", inputs.toString());
+        ArazzoInputsResolver resolver = new ArazzoInputsResolver();
+
+        ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, resolver);
+
+        supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
     }
-
     @Override
     public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
         return supportedParameterTypes.containsKey(parameterContext.getParameter().getType());

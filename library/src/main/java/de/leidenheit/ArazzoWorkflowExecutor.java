@@ -15,6 +15,7 @@ public class ArazzoWorkflowExecutor {
 
     private final ArazzoSpecification arazzoSpecification;
     private final ArazzoSpecification.Workflow workflow;
+    private final ArazzoInputsResolver inputsResolver;
 
     public void execute() {
         // TODO finalize implementation
