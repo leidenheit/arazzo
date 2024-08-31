@@ -80,7 +80,6 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
-
         // TODO input loading and validation
         JsonNode inputsSchemaNode = workflow.getInputs();
         var arazzoInputs = System.getProperty("arazzo-inputs.file", "z");
@@ -90,11 +89,10 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
         System.out.printf("inputs: %s%n", inputs.toString());
         ArazzoInputsResolver resolver = new ArazzoInputsResolver(inputs);
         supportedParameterTypes.put(ArazzoInputsResolver.class, resolver);
-
         ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, resolver);
-
         supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
     }
+
     @Override
     public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
         return supportedParameterTypes.containsKey(parameterContext.getParameter().getType());

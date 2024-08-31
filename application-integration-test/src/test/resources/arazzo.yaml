@@ -45,13 +45,13 @@ workflows:
           - name: id
             in: path
             value: $inputs.cookieId
+          - name: url
+            in: path
+            value: '{$sourceDescriptions.cookieApi.url} hier ist ein Text {$steps.retrieveCookieStep.description} und noch tiefer {$steps.retrieveCookieStep.operationPath}'
         successCriteria:
-          - condition: $statusCode == 200
-        outputs:
-          # outputs from this step
-          ateCookie: $response.body
+          - condition: $statusCode == 202
     outputs:
-      available: $steps.eatCookieStep.ateCookie
+      available: $steps.eatCookieStep.outputs.ateCookie
     dependsOn:
       - dummyWorkflow1
       - dummyWorkflow2

@@ -1,5 +1,9 @@
 package de.leidenheit;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.restassured.RestAssured;
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +30,25 @@ public class ArazzoWorkflowExecutor {
         var serverUrl = arazzoSpecification.getOpenAPI().getServers().get(0).getUrl();
         serverUrl = serverUrl + ":8080";
 
+        var om = new ObjectMapper();
+        // provided from outside e.g. by json or yaml file and read into a simple map.
+        Map<String, Object> inputs = Map.of("cookieId", "4711");
+
+        // inline reference maps as helpers
+        var sourceDescriptions = om.convertValue(
+                arazzoSpecification.getSourceDescriptions(),
+                ArrayNode.class);
+
+        RuntimeExpressionResolver resolver = new RuntimeExpressionResolver(
+                inputs,
+                sourceDescriptions
+                // TODO others
+        );
+        var specJsonNode = om.convertValue(arazzoSpecification, JsonNode.class);
+        var resolvedNode = resolver.resolve(specJsonNode);
+        var resolvedSpec = om.convertValue(resolvedNode, ArazzoSpecification.class);
+        System.out.println("Resolved Node: " + resolvedSpec.toString());
+
         for (ArazzoSpecification.Workflow wf : arazzoSpecification.getWorkflows()) {
             for (ArazzoSpecification.Workflow.Step step : wf.getSteps()) {
                 var pathOperationEntry = arazzoSpecification.getOpenAPI().getPaths().entrySet().stream()
@@ -42,15 +65,16 @@ public class ArazzoWorkflowExecutor {
                                 ArazzoSpecification.Workflow.Step.Parameter::getName,
                                 ArazzoSpecification.Workflow.Step.Parameter::getValue));
 
-                for (Map.Entry<String, Object> entry : pathParameterMap.entrySet()) {
-                    // resolving $inputs
-                    final String INPUTS = "$inputs.";
-                    if (entry.getValue() instanceof String && ((String) entry.getValue()).startsWith(INPUTS)) {
-                        String keyPath = ((String) entry.getValue()).substring(INPUTS.length());
-                        Object resolved = inputsResolver.resolve(keyPath);
-                        entry.setValue(resolved);
-                    }
-                }
+//                for (Map.Entry<String, Object> entry : pathParameterMap.entrySet()) {
+//                    // resolving $inputs
+//                    final String INPUTS = "$inputs.";
+//                    if (entry.getValue() instanceof String && ((String) entry.getValue()).startsWith(INPUTS)) {
+//                        String keyPath = ((String) entry.getValue()).substring(INPUTS.length());
+//                        Object resolved = inputsResolver.resolve(keyPath);
+//                        System.out.printf("inputsResolver.resolve(%s)%n)", keyPath);
+//                        // entry.setValue(resolved);
+//                    }
+//                }
 
                 if (isHttpMethodGet) {
                     RestAssured
