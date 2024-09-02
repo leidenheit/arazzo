@@ -13,25 +13,21 @@ public class RuntimeExpressionResolver {
 
     private final Map<String, Object> inputs;
     private final ArrayNode sourceDescriptions;
+    private final ArrayNode steps;
 
     // TODO others
 
     public RuntimeExpressionResolver(
             final Map<String, Object> inputs,
-            final ArrayNode sourceDescriptions) {
+            final ArrayNode sourceDescriptions,
+            final ArrayNode steps) {
         this.inputs = inputs;
         this.sourceDescriptions = sourceDescriptions;
+        this.steps = steps;
     }
 
-    public Object resolve(final JsonNode node) {
-        if (node.isTextual()) {
-            return resolveString(node.asText());
-        } else if (node.isObject()) {
-            return resolveJsonObject(node);
-        } else if (node.isArray()) {
-            return resolveJsonArray(node);
-        }
-        return node;
+    public void resolve(JsonNode node) {
+        resolveJsonObject((ObjectNode) node);
     }
 
     private String resolveString(final String expression) {
@@ -51,8 +47,10 @@ public class RuntimeExpressionResolver {
                 }
                 String expr = expression.substring(openIndex + 1, closeIndex);
                 Object resolved = resolveExpression(expr);
-                if (Objects.nonNull(resolved)) {
-                    result.append(resolved);
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode textNode) {
+                    result.append(textNode.asText());
+                } else {
+                    throw new RuntimeException("Unexpected");
                 }
                 start = closeIndex + 1;
             }
@@ -67,11 +65,11 @@ public class RuntimeExpressionResolver {
             return getNestedValue(inputs, expression.substring("$inputs.".length()));
         } else if (expression.startsWith("$sourceDescriptions.")) {
             return resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
+        } else if (expression.startsWith("$steps.")) {
+            return resolveSteps(steps, expression.substring("$steps.".length()));
         } else if (expression.equals("$statusCode")) {
             // TODO not implemented
         } else if (expression.startsWith("$response.")) {
-            // TODO not implemented
-        } else if (expression.startsWith("$steps.")) {
             // TODO not implemented
         }
         // TODO others
@@ -79,8 +77,8 @@ public class RuntimeExpressionResolver {
     }
 
     private Object getNestedValue(
-            final Map<String, Object> resolveMap,
-            final String keyPath) {
+            Map<String, Object> resolveMap,
+            String keyPath) {
         String[] keys = keyPath.split("\\.");
         Object current = resolveMap;
         for (String key : keys) {
@@ -94,8 +92,8 @@ public class RuntimeExpressionResolver {
     }
 
     private JsonNode getNestedValue(
-            final JsonNode resolveNode,
-            final String keyPath) {
+            JsonNode resolveNode,
+            String keyPath) {
         String[] keys = keyPath.split("\\.");
         JsonNode currentNode = resolveNode;
         for (String key : keys) {
@@ -109,8 +107,8 @@ public class RuntimeExpressionResolver {
     }
 
     private JsonNode resolveSourceDescription(
-            final ArrayNode sourceDescriptionsArray,
-            final String keyPath) {
+            ArrayNode sourceDescriptionsArray,
+            String keyPath) {
         String[] keys = keyPath.split("\\.");
 
         if (keys.length < 2) return null;
@@ -126,26 +124,53 @@ public class RuntimeExpressionResolver {
         return null;
     }
 
+    private JsonNode resolveSteps(
+            ArrayNode stepsArray,
+            String keyPath) {
+        String[] keys = keyPath.split("\\.");
 
-    private JsonNode resolveJsonObject(final JsonNode node) {
-        ObjectNode resolvedNode = node.deepCopy();
-        node.fields().forEachRemaining(entry -> {
-            Object resolvedValue = resolve(entry.getValue());
-            resolvedNode.set(entry.getKey(), resolvedValue instanceof JsonNode jsonNode
-                    ? jsonNode
-                    : new TextNode(resolvedValue.toString()));
-        });
-        return resolvedNode;
+        if (keys.length < 2) return null;
+
+        String targetName = keys[0];
+        String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length);
+
+        for (JsonNode sourceNode : stepsArray) {
+            if (sourceNode.has("stepId") && sourceNode.get("stepId").asText().equals(targetName)) {
+                var resolved = getNestedValue(sourceNode, String.join(".", targetFields));
+                if (Objects.nonNull(resolved) && resolved.isTextual()) {
+                    resolved = new TextNode(resolveString(resolved.asText()));
+                    return resolved;
+                }
+                throw new RuntimeException("Unexpected");
+            }
+        }
+        return null;
     }
 
-    private JsonNode resolveJsonArray(final JsonNode arrayNode) {
-        ArrayNode resolvedArray = arrayNode.deepCopy();
+    private void resolveJsonObject(ObjectNode node) {
+        node.fields().forEachRemaining(entry -> {
+            JsonNode value = entry.getValue();
+            if (value.isTextual()) {
+                var resolved = resolveString(value.asText());
+                node.put(entry.getKey(), resolved);
+            } else if (value.isObject()) {
+                resolveJsonObject((ObjectNode) value);
+            } else if (value.isArray()) {
+                resolveJsonArray((ArrayNode) value);
+            }
+        });
+    }
+
+    private void resolveJsonArray(ArrayNode arrayNode) {
         for (int i = 0; i < arrayNode.size(); i++) {
-            Object resolvedValue = resolve(arrayNode.get(i));
-            resolvedArray.set(i, resolvedValue instanceof JsonNode jsonNode
-                    ? jsonNode
-                    : new TextNode(resolvedValue.toString()));
+            JsonNode value = arrayNode.get(i);
+            if (value.isTextual()) {
+                arrayNode.set(i, new TextNode(resolveString(value.asText())));
+            } else if (value.isObject()) {
+                resolveJsonObject((ObjectNode) value);
+            } else if (value.isArray()) {
+                resolveJsonArray((ArrayNode) value);
+            }
         }
-        return resolvedArray;
     }
 }

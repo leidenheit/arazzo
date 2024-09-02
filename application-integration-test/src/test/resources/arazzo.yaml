@@ -12,6 +12,10 @@ sourceDescriptions:
     url: http://localhost:8080/openapi.yaml
     type: openapi
     x-bernd: "Bernd"
+  - name: bookApi
+    url: http://localhost:9090/openapi.yaml
+    type: openapi
+    x-hugo: "Hugo"
 workflows:
   - workflowId: retrieveCookieAndEatCookie
     summary: Retrieve cookie by an identifier and eat it
@@ -45,9 +49,10 @@ workflows:
           - name: id
             in: path
             value: $inputs.cookieId
-          - name: url
-            in: path
-            value: '{$sourceDescriptions.cookieApi.url} hier ist ein Text {$steps.retrieveCookieStep.description} und noch tiefer {$steps.retrieveCookieStep.operationPath}'
+#TODO just dummy test
+#          - name: url
+#            in: path
+#            value: '{$sourceDescriptions.cookieApi.url} hier ist ein Text {$steps.retrieveCookieStep.description} und noch tiefer {$steps.retrieveCookieStep.operationPath}'
         successCriteria:
           - condition: $statusCode == 202
     outputs:

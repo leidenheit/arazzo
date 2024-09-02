@@ -63,7 +63,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
     }
 
     @Override
-    public void beforeEach(final ExtensionContext context) throws Exception {
+    public void beforeEach(final ExtensionContext context) {
+        // TODO conditional if explicit workflow execution annotation is not present
         Method testMethod = context.getRequiredTestMethod();
         if (!testMethod.isAnnotationPresent(Test.class)) {
             throw new RuntimeException("Annotation @WithWorkflowExecution can only be applied to @Test annotated methods");
@@ -80,16 +81,10 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
-        // TODO input loading and validation
-        JsonNode inputsSchemaNode = workflow.getInputs();
+        // prepare executor
         var arazzoInputs = System.getProperty("arazzo-inputs.file", "z");
-        var contentAsString = FileUtils.readFileToString(new File(arazzoInputs), StandardCharsets.UTF_8);
-        JsonNode inputsValueNode = new ObjectMapper().readTree(contentAsString);
-        var inputs = ArazzoInputsReader.validateAndParseInputs(inputsSchemaNode, inputsValueNode);
-        System.out.printf("inputs: %s%n", inputs.toString());
-        ArazzoInputsResolver resolver = new ArazzoInputsResolver(inputs);
-        supportedParameterTypes.put(ArazzoInputsResolver.class, resolver);
-        ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, resolver);
+        var params = new ExecutorParams(arazzoInputs);
+        ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, params);
         supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
     }
 

@@ -1,15 +1,19 @@
 package de.leidenheit;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.util.ObjectMapperFactory;
+import org.apache.commons.io.FileUtils;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class ArazzoInputsReader {
@@ -22,20 +26,36 @@ public class ArazzoInputsReader {
         YAML_MAPPER = ObjectMapperFactory.createYaml();
     }
 
-    public static Map<String, Object> validateAndParseInputs(final JsonNode schemaNode, final JsonNode valueNode) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        JSONObject jsonObject = new JSONObject(mapper.writeValueAsString(valueNode));
+    public static Map<String, Object> parseAndValidateInputs(final String inputsFilePath, final JsonNode schemaNode) {
+        try {
+            var inputs = readInputs(inputsFilePath);
+            var mapper = getMapper(inputs.toString());
 
-        // validate against schema
-        Schema schema = loadSchema(schemaNode);
-        schema.validate(jsonObject);
+            JSONObject jsonObject = new JSONObject(mapper.writeValueAsString(inputs));
 
-        return mapper.convertValue(valueNode, new TypeReference<>(){});
+            // validate against schema
+            Schema schema = loadSchema(schemaNode);
+            schema.validate(jsonObject);
+
+            return mapper.convertValue(inputs, new TypeReference<>() {
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static Schema loadSchema(final JsonNode schemaNode) {
         JSONObject rawSchema = new JSONObject(new JSONTokener(schemaNode.toString()));
         return SchemaLoader.load(rawSchema);
+    }
+
+    private static JsonNode readInputs(final String inputsFilePath) throws IOException, JsonMappingException {
+        var file = new File(inputsFilePath);
+        if (file.exists()) {
+            var contentAsString = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
+            return new ObjectMapper().readTree(contentAsString);
+        }
+        throw new RuntimeException("Unexpected");
     }
 
     private static ObjectMapper getMapper(final String data) {
