@@ -29,26 +29,10 @@ public class ArazzoWorkflowExecutor {
         var inputs = ArazzoInputsReader.parseAndValidateInputs(params.inputsFilePath(), workflow.getInputs());
         System.out.printf("inputs: %s%n", inputs.toString());
 
-
-        // inline reference maps as helpers
-        var om = new ObjectMapper();
-        var sourceDescriptions = om.convertValue(
-                arazzoSpecification.getSourceDescriptions(), ArrayNode.class);
-        var steps = om.convertValue(
-                workflow.getSteps(), ArrayNode.class);
         RuntimeExpressionResolver resolver = new RuntimeExpressionResolver(
-                inputs,
-                sourceDescriptions,
-                steps
-                // TODO others
-        );
-
-        // resolve whole spec
-        var specJsonNode = om.convertValue(arazzoSpecification, JsonNode.class);
-        resolver.resolve(specJsonNode);
-        var resolvedSpec = om.convertValue(specJsonNode, ArazzoSpecification.class);
+                arazzoSpecification, inputs);
+        ArazzoSpecification resolvedSpec = resolver.resolve();
         System.out.println("Resolved Node: " + resolvedSpec.toString());
-
 
         // execute
         for (ArazzoSpecification.Workflow wf : resolvedSpec.getWorkflows()) {

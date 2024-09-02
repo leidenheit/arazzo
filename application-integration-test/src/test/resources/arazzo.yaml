@@ -25,6 +25,8 @@ workflows:
       properties:
         cookieId:
           type: number
+        cookieIdWhichDoesNotExist:
+          type: number
     steps:
       - stepId: retrieveCookieStep
         description: This step demonstrates the retrieval of a cookie step.
@@ -49,33 +51,51 @@ workflows:
           - name: id
             in: path
             value: $inputs.cookieId
-#TODO just dummy test
-#          - name: url
-#            in: path
-#            value: '{$sourceDescriptions.cookieApi.url} hier ist ein Text {$steps.retrieveCookieStep.description} und noch tiefer {$steps.retrieveCookieStep.operationPath}'
+  - workflowId: retrieveNonExistingCookie
+    summary: Fail due to cookie not found
+    description: This workflow lays out the steps to look for a non existing cookie.
+    inputs:
+      type: object
+      properties:
+        cookieId:
+          type: number
+        cookieIdWhichDoesNotExist:
+          type: number
+    steps:
+      - stepId: retrieveNotExistingCookieStep
+        description: 'This step demonstrates the retrieval of a non-existing cookie step {$sourceDescriptions.cookieApi.type}.'
+        operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
+        operationId: findCookie
+        parameters:
+          # parameters to inject into the findCookie operation (parameter name must be resolvable at the referenced operation and the value is determined using {expression} syntax)
+          - name: id
+            in: path
+            value: $inputs.cookieIdWhichDoesNotExist
         successCriteria:
-          - condition: $statusCode == 202
-    outputs:
-      available: $steps.eatCookieStep.outputs.ateCookie
-    dependsOn:
-      - dummyWorkflow1
-      - dummyWorkflow2
+          # assertions to determine step was successful
+          - condition: $statusCode == 404
 components:
   parameters:
     id:
-      name: cookieId
+      name: id
       in: path
       value: $inputs.cookieId
   inputs:
-    pagination:
-      type: object
-      properties:
-        page:
-          type: integer
-          format: int32
-        pageSize:
-          type: integer
-          format: int32
+    type: object
+    properties:
+      cookieId:
+        type: number
+      cookieIdWhichDoesNotExist:
+        type: number
+      pagination:
+        type: object
+        properties:
+          page:
+            type: integer
+            format: int32
+          pageSize:
+            type: integer
+            format: int32
   successActions:
     successRetrieveCookieAndEatCookie:
       name: successRetrieveCookieAndEatCookieAndEnd

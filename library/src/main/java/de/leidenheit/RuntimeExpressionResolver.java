@@ -1,6 +1,7 @@
 package de.leidenheit;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
@@ -12,22 +13,34 @@ import java.util.Objects;
 public class RuntimeExpressionResolver {
 
     private final Map<String, Object> inputs;
-    private final ArrayNode sourceDescriptions;
-    private final ArrayNode steps;
+    private final ArazzoSpecification arazzoSpecification;
+    private final ObjectMapper mapper = new ObjectMapper();
 
+    private ArrayNode sourceDescriptions;
+    private ArrayNode steps;
     // TODO others
 
-    public RuntimeExpressionResolver(
-            final Map<String, Object> inputs,
-            final ArrayNode sourceDescriptions,
-            final ArrayNode steps) {
+    public RuntimeExpressionResolver(final ArazzoSpecification arazzoSpecification, final Map<String, Object> inputs) {
         this.inputs = inputs;
-        this.sourceDescriptions = sourceDescriptions;
-        this.steps = steps;
+        this.arazzoSpecification = arazzoSpecification;
+
+        this.sourceDescriptions = this.mapper.convertValue(
+                arazzoSpecification.getSourceDescriptions(), ArrayNode.class);
+
+        for (ArazzoSpecification.Workflow wf : arazzoSpecification.getWorkflows()) {
+            var stepsX = this.mapper.convertValue(wf.getSteps(), ArrayNode.class);
+            if (Objects.isNull(this.steps)) {
+                this.steps = stepsX;
+            } else {
+                this.steps.addAll(stepsX);
+            }
+        }
     }
 
-    public void resolve(JsonNode node) {
-        resolveJsonObject((ObjectNode) node);
+    public ArazzoSpecification resolve() {
+        var arazzoSpecAsJsonNode =  this.mapper.convertValue(this.arazzoSpecification, JsonNode.class);
+        resolveJsonObject((ObjectNode) arazzoSpecAsJsonNode);
+        return this.mapper.convertValue(arazzoSpecAsJsonNode, ArazzoSpecification.class);
     }
 
     private String resolveString(final String expression) {
@@ -40,7 +53,7 @@ public class RuntimeExpressionResolver {
                     result.append(expression.substring(start));
                     break;
                 }
-                result.append(expression.substring(start, openIndex));
+                result.append(expression, start, openIndex);
                 int closeIndex = expression.indexOf('}', openIndex);
                 if (closeIndex == -1) {
                     throw new IllegalArgumentException("Unmatched '{$' in expression: " + expression);
