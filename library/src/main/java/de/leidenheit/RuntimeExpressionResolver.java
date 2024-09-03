@@ -43,7 +43,7 @@ public class RuntimeExpressionResolver {
         return this.mapper.convertValue(arazzoSpecAsJsonNode, ArazzoSpecification.class);
     }
 
-    private String resolveString(final String expression) {
+    public String resolveString(final String expression) {
         StringBuilder result = new StringBuilder();
         if (expression.contains("{$")) {
             int start = 0;
@@ -73,17 +73,29 @@ public class RuntimeExpressionResolver {
         return result.toString();
     }
 
-    private Object resolveExpression(final String expression) {
+    public Object resolveExpression(final String expression) {
         if (expression.startsWith("$inputs.")) {
             return getNestedValue(inputs, expression.substring("$inputs.".length()));
         } else if (expression.startsWith("$sourceDescriptions.")) {
             return resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
         } else if (expression.startsWith("$steps.")) {
             return resolveSteps(steps, expression.substring("$steps.".length()));
-        } else if (expression.equals("$statusCode")) {
-            // TODO not implemented
+        }
+        // TODO others
+        return expression; // Return unchanged if no resolution is found
+    }
+
+    public Object resolveExpression(final String expression, Evaluator.EvaluatorParams params) {
+        if (expression.equals("$statusCode")) {
+            return String.valueOf(params.getLatestStatusCode());
         } else if (expression.startsWith("$response.")) {
             // TODO not implemented
+        } else if (expression.startsWith("$request.")) {
+            // TODO not implemented
+        } else if (expression.startsWith("$url")) {
+            return params.getLatestUrl();
+        } else if (expression.startsWith("$method")) {
+            return params.getLatestHttpMethod();
         }
         // TODO others
         return expression; // Return unchanged if no resolution is found

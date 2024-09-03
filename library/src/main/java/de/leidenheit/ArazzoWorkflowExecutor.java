@@ -1,15 +1,11 @@
 package de.leidenheit;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import static org.hamcrest.Matchers.notNullValue;
 
 @RequiredArgsConstructor
 public class ArazzoWorkflowExecutor {
@@ -51,76 +47,50 @@ public class ArazzoWorkflowExecutor {
                                 ArazzoSpecification.Workflow.Step.Parameter::getName,
                                 ArazzoSpecification.Workflow.Step.Parameter::getValue));
 
+                Evaluator evaluator = new Evaluator(resolver);
+                Evaluator.EvaluatorParams evaluatorParams = Evaluator.EvaluatorParams.builder().build();
+
+                var requestSpecification = RestAssured
+                        .given()
+                        .filter((requestSpec, responseSpec, ctx) -> {
+                            // TODO use filter to inspect request and extract necessary data: $url, $method, $request,
+                            evaluatorParams.setLatestUrl(requestSpec.getBaseUri());
+                            evaluatorParams.setLatestHttpMethod(requestSpec.getMethod());
+                            evaluatorParams.setLatestRequestSpecification(requestSpec);
+
+                            return ctx.next(requestSpec, responseSpec);
+                        })
+                        .baseUri(serverUrl)
+                        .pathParams(pathParameterMap)
+                        .when();
+
+                Response response;
+                // do the actual call
                 if (isHttpMethodGet) {
-                    RestAssured
-                            .given()
-                            .baseUri(serverUrl)
-                            .pathParams(pathParameterMap)
-                            .when()
-                            .get(pathAsString)
-                            .then()
-                            .statusCode(200)
-                            .body(notNullValue());
+                    response = requestSpecification.get(pathAsString);
                 } else {
-                    RestAssured
-                            .given()
-                            .baseUri(serverUrl)
-                            .pathParams(pathParameterMap)
-                            .when()
-                            .post(pathAsString)
-                            .then()
-                            .statusCode(202)
-                            .body(notNullValue());
+                    response = requestSpecification.post(pathAsString);
                 }
+
+                // TODO set latest $statusCode, $response
+                evaluatorParams.setLatestStatusCode(response.statusCode());
+                evaluatorParams.setLastestResponse(response);
+
+                // TODO verify successCriteria
+                if (Objects.nonNull(step.getSuccessCriteria())) {
+                    boolean asExpected = step.getSuccessCriteria().stream()
+                            .allMatch(c -> evaluator.evalCriterion(c, evaluatorParams));
+                    if (asExpected) {
+                        // TODO handle onSuccess
+                        System.out.println("Successful SuccessCriteria");
+                    } else {
+                        // TODO handle onFailure
+                        throw new RuntimeException("Failed SuccessCriteria");
+                    }
+                }
+
+                // TODO set outputs
             }
         }
     }
-
-//    private ArazzoSpecification getMock() {
-//
-//        // TODO remove this mock and use the provided arazzo
-//        var mockParameter = ArazzoSpecification.Workflow.Step.Parameter.builder()
-//                .name("id")
-//                .value("4711")
-//                .in(ArazzoSpecification.Workflow.Step.Parameter.ParameterEnum.PATH)
-//                .reference(null)
-//                .build();
-//        var mockStep1 = ArazzoSpecification.Workflow.Step.builder()
-//                .stepId("retrieveCookieStep")
-//                .description("")
-//                .successCriteria(Collections.emptyList())
-//                .outputs(null)
-//                .operationId("findCookie")
-//                .parameters(List.of(mockParameter))
-//                .onFailure(Collections.emptyList())
-//                .onSuccess(Collections.emptyList())
-//                .build();
-//        var mockStep2 = ArazzoSpecification.Workflow.Step.builder()
-//                .stepId("eatCookieStep")
-//                .description("")
-//                .successCriteria(Collections.emptyList())
-//                .outputs(null)
-//                .operationId("eatCookie")
-//                .parameters(List.of(mockParameter))
-//                .onFailure(Collections.emptyList())
-//                .onSuccess(Collections.emptyList())
-//                .build();
-//        var mockWorkflow = ArazzoSpecification.Workflow.builder()
-//                .workflowId("retrieveCookieAndEatCookie")
-//                .summary("")
-//                .description("")
-//                .inputs(null)
-//                .outputs(null)
-//                .steps(List.of(mockStep1, mockStep2))
-//                .build();
-//        var mockArazzo = ArazzoSpecification.builder()
-//                .arazzo("1.0.0")
-//                .info(arazzoSpecification.getInfo())
-//                .sourceDescriptions(arazzoSpecification.getSourceDescriptions())
-//                .workflows(List.of(mockWorkflow))
-//                .openAPI(arazzoSpecification.getOpenAPI())
-//                .build();
-//
-//        return mockArazzo;
-//    }
 }

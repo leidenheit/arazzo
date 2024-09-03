@@ -137,7 +137,8 @@ public class ArazzoSpecification {
                 public enum ParameterEnum {
                     PATH("path"),
                     HEADER("header"),
-                    QUERY("query");
+                    QUERY("query"),
+                    BODY("body");
 
                     private final String value;
                 }
