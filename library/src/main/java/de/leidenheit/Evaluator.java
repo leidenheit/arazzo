@@ -146,6 +146,7 @@ public class Evaluator {
         if (context.equals("$statusCode")) {
             return String.valueOf(params.latestStatusCode);
         } else if (context.startsWith("$response.")) {
+            // FIXME ignoring fields but body
             return extractResponseBody(params);
         } else if (context.startsWith("$inputs.")) {
             return resolver.resolveString(context);
@@ -200,7 +201,7 @@ public class Evaluator {
 
     private boolean evaluateXPathExpression(final String contextValue, final String condition) {
         // TODO implementation
-        return false;
+        throw new RuntimeException("not implemented yet");
     }
 
     private String extractResponseBody(final EvaluatorParams params) {

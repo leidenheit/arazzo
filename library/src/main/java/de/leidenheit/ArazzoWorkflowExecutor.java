@@ -89,8 +89,21 @@ public class ArazzoWorkflowExecutor {
                     }
                 }
 
-                // TODO set outputs
+                // TODO resolve step outputs
+                step.getOutputs().entrySet().forEach(output -> {
+                    var resolvedOutput = resolver.resolveExpression(output.getValue().toString(), evaluatorParams);
+                    output.setValue(resolvedOutput);
+                });
+
+                System.out.println("step end");
             }
+            // TODO resolve wf outputs
+            wf.getOutputs().entrySet().forEach(output -> {
+                var resolvedOutput = resolver.resolveExpression(output.getValue().toString());
+                output.setValue(resolvedOutput);
+            });
+
+            System.out.println("wf end");
         }
     }
 }

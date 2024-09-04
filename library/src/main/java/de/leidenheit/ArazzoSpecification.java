@@ -22,6 +22,8 @@ public class ArazzoSpecification {
     private List<SourceDescription> sourceDescriptions;
     private List<Workflow> workflows;
     private Components components;
+    private Map<String, Object> extensions;
+
     private OpenAPI openAPI;
 
     @Data
@@ -73,7 +75,7 @@ public class ArazzoSpecification {
         private List<Step> steps;
         private List<SuccessAction> successActions;
         private List<FailureAction> failureActions;
-        private Map<String, String> outputs;
+        private Map<String, Object> outputs;
         private List<Step.Parameter> parameters;
         private Map<String, Object> extensions;
 
@@ -93,7 +95,7 @@ public class ArazzoSpecification {
             private List<Criterion> successCriteria;
             private List<SuccessAction> onSuccess;
             private List<FailureAction> onFailure;
-            private Map<String, String> outputs;
+            private Map<String, Object> outputs;
             private Map<String, Object> extensions;
 
             @Data

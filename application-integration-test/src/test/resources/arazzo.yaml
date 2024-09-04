@@ -48,6 +48,9 @@ workflows:
             condition: $.id == $inputs.cookieId
             type: jsonpath
             version: draft-goessner-dispatch-jsonpath-00
+          - context: $statusCode
+            condition: '^200$'
+            type: regex
         outputs:
           # outputs from this step
           cookieDto: $response.body
@@ -59,6 +62,9 @@ workflows:
           - name: id
             in: path
             value: $inputs.cookieId
+    outputs:
+      # outputs from this wf
+      cookieDto: $step.retrieveCookieStep.output.cookieDto
   - workflowId: retrieveNonExistingCookie
     summary: Fail due to cookie not found
     description: This workflow lays out the steps to look for a non existing cookie.

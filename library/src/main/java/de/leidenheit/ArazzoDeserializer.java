@@ -203,6 +203,11 @@ public class ArazzoDeserializer {
 //                }
             }
 
+            Map<String, Object> extensions = getExtensions(node);
+            if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+                arazzo.setExtensions(extensions);
+            }
+
             Set<String> keys = getKeys(node);
             Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
             for (String key : keys) {
@@ -852,7 +857,7 @@ public class ArazzoDeserializer {
         return step;
     }
 
-    private Map<String, String> getOutputs(
+    private Map<String, Object> getOutputs(
             final ObjectNode node,
             final String location,
             final ParseResult parseResult) {
@@ -861,13 +866,14 @@ public class ArazzoDeserializer {
             return Collections.emptyMap();
         }
 
-        Map<String, String> outputs = new HashMap<>();
+        Map<String, Object> outputs = new HashMap<>();
 
         if (JsonNodeType.OBJECT.equals(node.getNodeType())) {
             Set<String> keys = getKeys(node);
             for (String key : keys) {
-                String expression = node.asText();
-                outputs.put(key, expression);
+                var nodeValue = node.get(key);
+                if (!nodeValue.isTextual()) throw new RuntimeException("Unexpected");
+                outputs.put(key, nodeValue);
             }
         } else {
             parseResult.invalidType(location, "outputs", "object", node);
