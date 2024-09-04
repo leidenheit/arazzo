@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 public class ArazzoDeserializer {
 
     protected static final Set<String> RESERVED_KEYWORDS = new LinkedHashSet<>(List.of(
-            "x-oai-","x-oas-", "arazzo"
+            "x-oai-", "x-oas-", "arazzo"
     ));
     protected static final Set<String> ROOT_KEYS = new LinkedHashSet<>(List.of(
             "arazzo", "info", "sourceDescriptions", "workflows", "components", "extensions"
@@ -38,7 +38,7 @@ public class ArazzoDeserializer {
     ));
     protected static final Set<String> WORKFLOW_KEYS = new LinkedHashSet<>(List.of(
             "workflowId", "summary", "description", "inputs",
-            "dependsOn", "steps", "successActions" , "failureActions" ,
+            "dependsOn", "steps", "successActions", "failureActions",
             "outputs", "parameters", "extensions"
     ));
     protected static final Set<String> STEP_KEYS = new LinkedHashSet<>(List.of(
@@ -61,6 +61,9 @@ public class ArazzoDeserializer {
     protected static final Set<String> CRITERION_KEYS = new LinkedHashSet<>(List.of(
             "context", "condition", "type", "extensions"
     ));
+    protected static final Set<String> CRITERION_EXPRESSION_TYPE_OBJECT_KEYS = new LinkedHashSet<>(List.of(
+            "type", "version", "extensions"
+    ));
     protected static final Set<String> REQUEST_BODY_KEYS = new LinkedHashSet<>(List.of(
             "contentType", "payload", "replacements", "extensions"
     ));
@@ -76,6 +79,12 @@ public class ArazzoDeserializer {
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
     protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(List.of(
             JsonNodeType.OBJECT, JsonNodeType.STRING
+    ));
+    protected static Set<String> validCriterionExpressionTypeObjectVersionsJsonPath = new LinkedHashSet<>(List.of(
+            "draft-goessner-dispatch-jsonpath-00"
+    ));
+    protected static Set<String> validCriterionExpressionTypeObjectVersionsXPath = new LinkedHashSet<>(List.of(
+            "xpath-30", "xpath-20", "xpath-10"
     ));
 
     static {
@@ -119,7 +128,8 @@ public class ArazzoDeserializer {
     public ArazzoParseResult deserialize(final JsonNode node, final String path, final ArazzoParseOptions options) {
         basePath = path;
         rootNode = node;
-        rootMap = new ObjectMapper().convertValue(rootNode, new TypeReference<>() {});
+        rootMap = new ObjectMapper().convertValue(rootNode, new TypeReference<>() {
+        });
         ArazzoParseResult result = new ArazzoParseResult();
         try {
             ParseResult rootParseResult = new ParseResult();
@@ -490,16 +500,33 @@ public class ArazzoDeserializer {
         }
 
         String context = getString("context", node, false, location, parseResult);
-        if ( parseResult.isAllowEmptyStrings() && Objects.nonNull(context)
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(context)
                 || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(context)) {
             criterion.setContext(context);
         }
         String typeAsString = getString("type", node, false, location, parseResult);
-        if ( parseResult.isAllowEmptyStrings() && Objects.nonNull(context)
-                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(context)) {
+        if (parseResult.isAllowEmptyStrings() && Objects.nonNull(typeAsString)
+                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(typeAsString)) {
             ArazzoSpecification.Workflow.Step.Criterion.CriterionType type =
                     ArazzoSpecification.Workflow.Step.Criterion.CriterionType.valueOf(typeAsString.toUpperCase());
             criterion.setType(type);
+            if (Objects.nonNull(criterion.getExpressionTypeObject())) {
+                String expTypeObjTypeAsType = getString("type", node, true, location, parseResult);
+                String expTypeObjTypeAsVersion = getString("version", node, true, location, parseResult);
+                if ((parseResult.isAllowEmptyStrings() && Objects.nonNull(expTypeObjTypeAsType)
+                        || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(expTypeObjTypeAsType))
+                        &&
+                        (parseResult.isAllowEmptyStrings() && Objects.nonNull(expTypeObjTypeAsVersion)
+                                || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(expTypeObjTypeAsVersion))
+                ) {
+                    criterion.getExpressionTypeObject().setVersion(expTypeObjTypeAsVersion);
+
+                    Map<String, Object> extensions = getExtensions(node);
+                    if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+                        criterion.setExtensions(extensions);
+                    }
+                }
+            }
         } else {
             criterion.setType(ArazzoSpecification.Workflow.Step.Criterion.CriterionType.SIMPLE);
         }
@@ -700,7 +727,7 @@ public class ArazzoDeserializer {
 
         ArrayNode parameterArray = getArray("parameters", node, false, location, parseResult);
         if (Objects.nonNull(parameterArray) && !parameterArray.isEmpty()) {
-            workflow.setParameters(getParameterList(parameterArray, String.format("%s.%s" , location, "parameters"), parseResult));
+            workflow.setParameters(getParameterList(parameterArray, String.format("%s.%s", location, "parameters"), parseResult));
         }
 
         Map<String, Object> extensions = getExtensions(node);
@@ -1474,9 +1501,9 @@ public class ArazzoDeserializer {
     }
 
     public Map<String, JsonNode> getSchemas(final ObjectNode node,
-                                              final String location,
-                                              final ParseResult result,
-                                              final boolean underComponents) {
+                                            final String location,
+                                            final ParseResult result,
+                                            final boolean underComponents) {
         if (Objects.isNull(node)) {
             return null;
         }
@@ -1715,6 +1742,7 @@ public class ArazzoDeserializer {
                 return components.getSuccessActions().containsKey(reference);
             }
         };
+
         public abstract boolean validateComponent(ArazzoSpecification.Components components, String reference);
     }
 }

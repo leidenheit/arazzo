@@ -40,6 +40,14 @@ workflows:
         successCriteria:
           # assertions to determine step was successful
           - condition: $statusCode == 200
+          - context: $response.body
+            condition: '#/name == Chocolate'
+            type: jsonpath
+            version: draft-goessner-dispatch-jsonpath-00
+          - context: $response.body
+            condition: $.id == $inputs.cookieId
+            type: jsonpath
+            version: draft-goessner-dispatch-jsonpath-00
         outputs:
           # outputs from this step
           cookieDto: $response.body

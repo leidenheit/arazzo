@@ -1,5 +1,8 @@
 package de.leidenheit;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
@@ -7,10 +10,13 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Evaluator {
 
     private final RuntimeExpressionResolver resolver;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     protected Evaluator(final RuntimeExpressionResolver resolver) {
         this.resolver = resolver;
@@ -22,7 +28,7 @@ public class Evaluator {
         if (criterion.getType() != null) {
             return switch (criterion.getType()) {
                 case REGEX -> evaluateRegex(criterion, params);
-                case JSON_PATH -> evaluateJsonPath(criterion, params);
+                case JSONPATH -> evaluateJsonPath(criterion, params);
                 case XPATH -> evaluateXPath(criterion, params);
                 case SIMPLE -> evaluateSimpleCondition(criterion, params);
             };
@@ -43,16 +49,89 @@ public class Evaluator {
             final EvaluatorParams params) {
         String contextValue = resolveContext(criterion.getContext(), params);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
+        // e.g. $response.body.fieldHugo -> ^FieldHugoValue$
         return contextValue.matches(criterion.getCondition());
     }
 
     private boolean evaluateJsonPath(
             final ArazzoSpecification.Workflow.Step.Criterion criterion,
             final EvaluatorParams params) {
+        // Resolve the context value (e.g., response body)
         String contextValue = resolveContext(criterion.getContext(), params);
-        if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
-        // e.g. $response.body.pets[?(@.age > 4)]
-        return JsonPath.parse(contextValue).read(criterion.getCondition(), Boolean.class);
+        if (Objects.isNull(contextValue)) {
+            throw new RuntimeException("Unexpected");
+        }
+
+        // Parse the contextValue into a JSON Node
+        JsonNode jsonNode = null;
+        try {
+            jsonNode = mapper.readTree(contextValue);
+
+            // Check if the criterion uses a JSON Pointer (starts with #/)
+            if (criterion.getCondition().startsWith("#/")) {
+                // Extract JSON pointer, operator and expected value
+                Pattern pattern = Pattern.compile("#(?<ptr>/[^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
+                Matcher matcher = pattern.matcher(criterion.getCondition());
+
+                if (matcher.find()) {
+                    String ptr = matcher.group("ptr");         // JSON Pointer
+                    String operator = matcher.group("operator");  // Operator
+                    String expected = matcher.group("expected");  // Erwarteter Wert
+
+                    System.out.println("Pointer: " + ptr);
+                    System.out.println("Operator: " + operator);
+                    System.out.println("Expected: " + expected);
+
+                    // Use JSON Pointer to resolve the node
+                    JsonNode nodeAtPointer = jsonNode.at(ptr);
+                    if (Objects.isNull(nodeAtPointer)) throw new RuntimeException("Unexpected");
+
+                    // Resolve expected if it is an expression
+                    expected = resolver.resolveString(expected);
+
+                    // Evaluate condition based on the extracted node (simple condition)
+                    var resolvedCriterion = ArazzoSpecification.Workflow.Step.Criterion.builder()
+                            .type(ArazzoSpecification.Workflow.Step.Criterion.CriterionType.SIMPLE)
+                            .condition(String.format("%s %s %s", nodeAtPointer.asText(), operator, expected))
+                            .context(criterion.getContext())
+                            .build();
+                    return evaluateSimpleCondition(resolvedCriterion, params);
+                } else {
+                    throw new RuntimeException("Unexpected");
+                }
+            } else {
+                // Extract query, operator and expected value
+                Pattern pattern = Pattern.compile("(?<query>[$][^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
+                Matcher matcher = pattern.matcher(criterion.getCondition());
+
+                if (matcher.find()) {
+                    String query = matcher.group("query");         // JSON Pointer
+                    String operator = matcher.group("operator");  // Operator
+                    String expected = matcher.group("expected");  // Erwarteter Wert
+
+                    System.out.println("Query: " + query);
+                    System.out.println("Operator: " + operator);
+                    System.out.println("Expected: " + expected);
+
+                    // Resolve expected if it is an expression
+                    expected = resolver.resolveString(expected);
+
+                    var jsonNodeValue = JsonPath.parse(jsonNode.toString()).read(query);
+                    if (Objects.isNull(jsonNodeValue)) throw new RuntimeException("Unexpected");
+                    // Evaluate condition based on the extracted node (simple condition)
+                    var resolvedCriterion = ArazzoSpecification.Workflow.Step.Criterion.builder()
+                            .type(ArazzoSpecification.Workflow.Step.Criterion.CriterionType.SIMPLE)
+                            .condition(String.format("%s %s %s", jsonNodeValue, operator, expected))
+                            .context(criterion.getContext())
+                            .build();
+                    return evaluateSimpleCondition(resolvedCriterion, params);
+                } else {
+                    throw new RuntimeException("Unexpected");
+                }
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private boolean evaluateXPath(
@@ -67,8 +146,7 @@ public class Evaluator {
         if (context.equals("$statusCode")) {
             return String.valueOf(params.latestStatusCode);
         } else if (context.startsWith("$response.")) {
-            // e.g. $response.body
-            return extractResponseBody();
+            return extractResponseBody(params);
         } else if (context.startsWith("$inputs.")) {
             return resolver.resolveString(context);
         } else if (context.startsWith("$sourceDescriptions.")) {
@@ -125,9 +203,10 @@ public class Evaluator {
         return false;
     }
 
-    private String extractResponseBody() {
-        // TODO implementation
-        return null;
+    private String extractResponseBody(final EvaluatorParams params) {
+        var body = params.lastestResponse.body();
+        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
+        return body.asString();
     }
 
     @Data
