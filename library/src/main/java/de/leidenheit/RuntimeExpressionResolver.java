@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import io.restassured.http.Headers;
+import io.restassured.response.Response;
+import io.restassured.specification.FilterableRequestSpecification;
+import io.restassured.specification.RequestSpecification;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -85,13 +89,51 @@ public class RuntimeExpressionResolver {
         return expression; // Return unchanged if no resolution is found
     }
 
+    private String resolveHeader(final String headerName, final Headers headers) {
+        var header = headers.getValue(headerName);
+        if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
+        return header;
+    }
+
+    private String resolveResponseBody(final Response response) {
+        var body = response.body();
+        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
+        return body.asString();
+    }
+
+    private String resolveRequestBody(final RequestSpecification requestSpecification) {
+        String body = ((FilterableRequestSpecification) requestSpecification).getBody();
+        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
+        return body;
+    }
+
     public Object resolveExpression(final String expression, Evaluator.EvaluatorParams params) {
         if (expression.equals("$statusCode")) {
             return String.valueOf(params.getLatestStatusCode());
         } else if (expression.startsWith("$response.")) {
-            // TODO not implemented
+            if (expression.startsWith("$response.header")) {
+                var header = expression.substring("$response.header.".length());
+                return resolveHeader(header, params.getLastestResponse().getHeaders());
+            } else if (expression.startsWith("$response.body")) {
+                var responseBody = resolveResponseBody(params.getLastestResponse());
+                if (responseBody.isBlank()) {
+                    return null;
+                }
+                return responseBody;
+            }
+            throw new RuntimeException("Not supported");
         } else if (expression.startsWith("$request.")) {
-            // TODO not implemented
+            if (expression.startsWith("$request.header")) {
+                var header = expression.substring("$request.header.".length());
+                return resolveHeader(header, params.getLatestRequest().getHeaders());
+            } else if (expression.startsWith("$request.body")) {
+                var requestBody = resolveRequestBody(params.getLatestRequest());
+                if (requestBody.isBlank()) {
+                    return null;
+                }
+                return requestBody;
+            }
+            throw new RuntimeException("Not supported");
         } else if (expression.startsWith("$url")) {
             return params.getLatestUrl();
         } else if (expression.startsWith("$method")) {

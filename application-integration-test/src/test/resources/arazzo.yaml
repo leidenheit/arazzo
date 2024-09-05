@@ -62,9 +62,16 @@ workflows:
           - name: id
             in: path
             value: $inputs.cookieId
+        successCriteria:
+        # assertions to determine step was successful
+          - context: $response.header.location
+            condition: '^/cookies/4711/eat$'
+            type: regex
+          - condition: $response.header.location != null
+          - condition: $response.body == null
     outputs:
       # outputs from this wf
-      cookieDto: $step.retrieveCookieStep.output.cookieDto
+      cookieDto: $steps.retrieveCookieStep.outputs.cookieDto
   - workflowId: retrieveNonExistingCookie
     summary: Fail due to cookie not found
     description: This workflow lays out the steps to look for a non existing cookie.

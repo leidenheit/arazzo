@@ -27,6 +27,7 @@ public class ArazzoWorkflowExecutor {
 
         RuntimeExpressionResolver resolver = new RuntimeExpressionResolver(
                 arazzoSpecification, inputs);
+        // FIXME: do not resolve beforehand; seems to be better to do within the iteration
         ArazzoSpecification resolvedSpec = resolver.resolve();
         System.out.println("Resolved Node: " + resolvedSpec.toString());
 
@@ -56,7 +57,7 @@ public class ArazzoWorkflowExecutor {
                             // TODO use filter to inspect request and extract necessary data: $url, $method, $request,
                             evaluatorParams.setLatestUrl(requestSpec.getBaseUri());
                             evaluatorParams.setLatestHttpMethod(requestSpec.getMethod());
-                            evaluatorParams.setLatestRequestSpecification(requestSpec);
+                            evaluatorParams.setLatestRequest(requestSpec);
 
                             return ctx.next(requestSpec, responseSpec);
                         })
@@ -90,19 +91,22 @@ public class ArazzoWorkflowExecutor {
                 }
 
                 // TODO resolve step outputs
-                step.getOutputs().entrySet().forEach(output -> {
-                    var resolvedOutput = resolver.resolveExpression(output.getValue().toString(), evaluatorParams);
-                    output.setValue(resolvedOutput);
-                });
-
+                if (Objects.nonNull(step.getOutputs())) {
+                    step.getOutputs().entrySet().forEach(output -> {
+                        var resolvedOutput = resolver.resolveExpression(output.getValue().toString(), evaluatorParams);
+                        output.setValue(resolvedOutput);
+                    });
+                }
                 System.out.println("step end");
             }
-            // TODO resolve wf outputs
-            wf.getOutputs().entrySet().forEach(output -> {
-                var resolvedOutput = resolver.resolveExpression(output.getValue().toString());
-                output.setValue(resolvedOutput);
-            });
 
+            // TODO resolve wf outputs
+            if (Objects.nonNull(wf.getOutputs())) {
+                wf.getOutputs().entrySet().forEach(output -> {
+                    var resolvedOutput = resolver.resolveExpression(output.getValue().toString());
+                    output.setValue(resolvedOutput);
+                });
+            }
             System.out.println("wf end");
         }
     }

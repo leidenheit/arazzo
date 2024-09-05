@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import io.restassured.response.Response;
-import io.restassured.specification.RequestSpecification;
+import io.restassured.specification.FilterableRequestSpecification;
 import lombok.Builder;
 import lombok.Data;
 
@@ -146,8 +146,13 @@ public class Evaluator {
         if (context.equals("$statusCode")) {
             return String.valueOf(params.latestStatusCode);
         } else if (context.startsWith("$response.")) {
-            // FIXME ignoring fields but body
-            return extractResponseBody(params);
+            //TODO move impl to resolver itself
+            if (context.startsWith("$response.body")) {
+                return extractResponseBody(params);
+            } else if (context.startsWith("$response.header")) {
+                var header = context.substring("$response.header.".length());
+                return extractResponseHeader(header, params);
+            }
         } else if (context.startsWith("$inputs.")) {
             return resolver.resolveString(context);
         } else if (context.startsWith("$sourceDescriptions.")) {
@@ -194,6 +199,8 @@ public class Evaluator {
             return Double.compare(leftNumberValue.doubleValue(), rightNumberValue.doubleValue());
         } else if (leftValue instanceof String leftStringValue && rightValue instanceof String rightStringValue) {
             return (leftStringValue).compareToIgnoreCase(rightStringValue);
+        } else if (Objects.isNull(leftValue) && "null".equals(rightValue)) {
+            return 0;
         } else {
             throw new IllegalArgumentException("Incomparable types: " + leftValue + " and " + rightValue);
         }
@@ -210,6 +217,12 @@ public class Evaluator {
         return body.asString();
     }
 
+    private String extractResponseHeader(final String headerName, final EvaluatorParams params) {
+        var header = params.lastestResponse.header(headerName);
+        if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
+        return header;
+    }
+
     @Data
     @Builder
     public static class EvaluatorParams {
@@ -217,6 +230,6 @@ public class Evaluator {
         private String latestUrl;
         private String latestHttpMethod;
         private Response lastestResponse;
-        private RequestSpecification latestRequestSpecification;
+        private FilterableRequestSpecification latestRequest;
     }
 }
