@@ -1,5 +1,6 @@
 package de.leidenheit;
 
+import com.fasterxml.jackson.databind.node.TextNode;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,9 @@ public class ArazzoWorkflowExecutor {
 
         RuntimeExpressionResolver resolver = new RuntimeExpressionResolver(
                 arazzoSpecification, inputs);
-        // FIXME: do not resolve beforehand; seems to be better to do within the iteration
-        ArazzoSpecification resolvedSpec = resolver.resolve();
-        System.out.println("Resolved Node: " + resolvedSpec.toString());
 
         // execute
-        for (ArazzoSpecification.Workflow wf : resolvedSpec.getWorkflows()) {
+        for (ArazzoSpecification.Workflow wf : arazzoSpecification.getWorkflows()) {
             for (ArazzoSpecification.Workflow.Step step : wf.getSteps()) {
                 var pathOperationEntry = arazzoSpecification.getOpenAPI().getPaths().entrySet().stream()
                         .filter(entry ->
@@ -46,7 +44,8 @@ public class ArazzoWorkflowExecutor {
                 var pathParameterMap = step.getParameters().stream()
                         .collect(Collectors.toMap(
                                 ArazzoSpecification.Workflow.Step.Parameter::getName,
-                                ArazzoSpecification.Workflow.Step.Parameter::getValue));
+                                parameter -> resolver.resolveExpression(parameter.getValue().toString())
+                        ));
 
                 Evaluator evaluator = new Evaluator(resolver);
                 Evaluator.EvaluatorParams evaluatorParams = Evaluator.EvaluatorParams.builder().build();
@@ -54,7 +53,6 @@ public class ArazzoWorkflowExecutor {
                 var requestSpecification = RestAssured
                         .given()
                         .filter((requestSpec, responseSpec, ctx) -> {
-                            // TODO use filter to inspect request and extract necessary data: $url, $method, $request,
                             evaluatorParams.setLatestUrl(requestSpec.getBaseUri());
                             evaluatorParams.setLatestHttpMethod(requestSpec.getMethod());
                             evaluatorParams.setLatestRequest(requestSpec);
@@ -73,11 +71,11 @@ public class ArazzoWorkflowExecutor {
                     response = requestSpecification.post(pathAsString);
                 }
 
-                // TODO set latest $statusCode, $response
+                // set latest $statusCode, $response
                 evaluatorParams.setLatestStatusCode(response.statusCode());
                 evaluatorParams.setLastestResponse(response);
 
-                // TODO verify successCriteria
+                // verify successCriteria
                 if (Objects.nonNull(step.getSuccessCriteria())) {
                     boolean asExpected = step.getSuccessCriteria().stream()
                             .allMatch(c -> evaluator.evalCriterion(c, evaluatorParams));
@@ -93,8 +91,14 @@ public class ArazzoWorkflowExecutor {
                 // TODO resolve step outputs
                 if (Objects.nonNull(step.getOutputs())) {
                     step.getOutputs().entrySet().forEach(output -> {
-                        var resolvedOutput = resolver.resolveExpression(output.getValue().toString(), evaluatorParams);
-                        output.setValue(resolvedOutput);
+                        System.out.println("step iteration");
+                        if (output.getValue() instanceof TextNode textNode) {
+                            var resolvedOutput = resolver.resolveExpression(textNode.asText(), evaluatorParams);
+                            var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
+                            resolver.resolvedMap.put(key, resolvedOutput);
+                        } else {
+                            throw new RuntimeException("Unexpected");
+                        }
                     });
                 }
                 System.out.println("step end");
@@ -103,8 +107,14 @@ public class ArazzoWorkflowExecutor {
             // TODO resolve wf outputs
             if (Objects.nonNull(wf.getOutputs())) {
                 wf.getOutputs().entrySet().forEach(output -> {
-                    var resolvedOutput = resolver.resolveExpression(output.getValue().toString());
-                    output.setValue(resolvedOutput);
+                    System.out.println("wf iteration");
+                    if (output.getValue() instanceof TextNode textNode) {
+                        var x = resolver.resolveString(textNode.asText());
+                        // TODO do something with that
+                        System.out.println("wf output: " + x);
+                    } else {
+                        throw new RuntimeException("Unexpected");
+                    }
                 });
             }
             System.out.println("wf end");

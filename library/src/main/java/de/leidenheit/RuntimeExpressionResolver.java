@@ -11,6 +11,7 @@ import io.restassured.specification.FilterableRequestSpecification;
 import io.restassured.specification.RequestSpecification;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -23,6 +24,9 @@ public class RuntimeExpressionResolver {
     private ArrayNode sourceDescriptions;
     private ArrayNode steps;
     // TODO others
+
+    // hold resolved values to easily reference them later
+    public final Map<String, Object> resolvedMap = new LinkedHashMap<>();
 
     public RuntimeExpressionResolver(final ArazzoSpecification arazzoSpecification, final Map<String, Object> inputs) {
         this.inputs = inputs;
@@ -78,15 +82,25 @@ public class RuntimeExpressionResolver {
     }
 
     public Object resolveExpression(final String expression) {
-        if (expression.startsWith("$inputs.")) {
-            return getNestedValue(inputs, expression.substring("$inputs.".length()));
-        } else if (expression.startsWith("$sourceDescriptions.")) {
-            return resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
-        } else if (expression.startsWith("$steps.")) {
-            return resolveSteps(steps, expression.substring("$steps.".length()));
+        // re-use already resolved expressions
+        Object resolved = resolvedMap.get(expression);
+        if (Objects.isNull(resolved)) {
+            if (expression.startsWith("$inputs.")) {
+                resolved = getNestedValue(inputs, expression.substring("$inputs.".length()));
+            } else if (expression.startsWith("$sourceDescriptions.")) {
+                resolved = resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
+            } else if (expression.startsWith("$steps.")) {
+                resolved = resolveSteps(steps, expression.substring("$steps.".length()));
+            } else {
+                // Return unchanged if no resolution is found
+                return expression;
+            }
+            // TODO others
+
+            // add resolved expression to reference map
+            resolvedMap.put(expression, resolved);
         }
-        // TODO others
-        return expression; // Return unchanged if no resolution is found
+        return resolved;
     }
 
     private String resolveHeader(final String headerName, final Headers headers) {
