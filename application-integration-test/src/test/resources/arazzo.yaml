@@ -21,12 +21,7 @@ workflows:
     summary: Retrieve cookie by an identifier and eat it
     description: This workflow lays out the steps to retrieve a cookie and then eat it.
     inputs:
-      type: object
-      properties:
-        cookieId:
-          type: number
-        cookieIdWhichDoesNotExist:
-          type: number
+      $ref: '#/components/inputs/cookieIds'
     steps:
       - stepId: retrieveCookieStep
         description: This step demonstrates the retrieval of a cookie step.
@@ -104,21 +99,22 @@ components:
       in: path
       value: $inputs.cookieId
   inputs:
-    type: object
-    properties:
-      cookieId:
-        type: number
-      cookieIdWhichDoesNotExist:
-        type: number
-      pagination:
-        type: object
-        properties:
-          page:
-            type: integer
-            format: int32
-          pageSize:
-            type: integer
-            format: int32
+    cookieIds:
+      type: object
+      properties:
+        cookieId:
+          type: number
+        cookieIdWhichDoesNotExist:
+          type: number
+    pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
   successActions:
     successRetrieveCookieAndEatCookie:
       name: successRetrieveCookieAndEatCookieAndEnd

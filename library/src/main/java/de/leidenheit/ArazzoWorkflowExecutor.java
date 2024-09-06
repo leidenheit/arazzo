@@ -1,5 +1,7 @@
 package de.leidenheit;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -23,7 +25,16 @@ public class ArazzoWorkflowExecutor {
         var serverUrl = arazzoSpecification.getOpenAPI().getServers().get(0).getUrl();
         serverUrl = serverUrl + ":8080";
 
-        var inputs = ArazzoInputsReader.parseAndValidateInputs(params.inputsFilePath(), workflow.getInputs());
+        // TODO components
+        var mapper = new ObjectMapper();
+        var node = mapper.convertValue(arazzoSpecification.getComponents(), JsonNode.class);
+        var componentsResolver = new ArazzoComponentRefResolver(node);
+
+        var inputSchema = workflow.getInputs();
+        if (inputSchema.has("$ref")) {
+            inputSchema = componentsResolver.resolveComponent(inputSchema.get("$ref").asText());
+        }
+        var inputs = ArazzoInputsReader.parseAndValidateInputs(params.inputsFilePath(), inputSchema);
         System.out.printf("inputs: %s%n", inputs.toString());
 
         ArazzoExpressionResolver resolver = new ArazzoExpressionResolver(arazzoSpecification, inputs);

@@ -101,7 +101,7 @@ public class ArazzoExpressionResolver extends ContextExpressionResolver {
         if (keys.length < 2) return null;
 
         String targetName = keys[0];
-        String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length); // Alle weiteren Felder, z.B. ["url"] oder ["x-hugo"]
+        String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length);
 
         for (JsonNode sourceNode : sourceDescriptionsArray) {
             if (sourceNode.has("name") && sourceNode.get("name").asText().equals(targetName)) {
