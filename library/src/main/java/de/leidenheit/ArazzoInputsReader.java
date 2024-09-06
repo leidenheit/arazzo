@@ -28,6 +28,9 @@ public class ArazzoInputsReader {
 
     public static Map<String, Object> parseAndValidateInputs(final String inputsFilePath, final JsonNode schemaNode) {
         try {
+
+            // TODO introduce grouping by workflowId key in order to validate multiple inputs to multiple schemas
+
             var inputs = readInputs(inputsFilePath);
             var mapper = getMapper(inputs.toString());
 

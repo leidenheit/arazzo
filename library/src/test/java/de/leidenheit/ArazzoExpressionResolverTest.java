@@ -2,7 +2,7 @@ package de.leidenheit;
 
 import org.junit.jupiter.api.Test;
 
-class RuntimeExpressionResolverTest {
+class ArazzoExpressionResolverTest {
 
 
     @Test

@@ -54,6 +54,7 @@ workflows:
         outputs:
           # outputs from this step
           cookieDto: $response.body
+          requestedCookieId: $request.path.id
       - stepId: eatCookieStep
         description: Eat a cookie identified by its id.
         operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}~1eat/post'
@@ -72,6 +73,7 @@ workflows:
     outputs:
       # outputs from this wf
       cookieDto: $steps.retrieveCookieStep.outputs.cookieDto
+      requestedCookieId: $steps.retrieveCookieStep.outputs.requestedCookieId
   - workflowId: retrieveNonExistingCookie
     summary: Fail due to cookie not found
     description: This workflow lays out the steps to look for a non existing cookie.

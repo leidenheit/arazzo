@@ -26,8 +26,7 @@ public class ArazzoWorkflowExecutor {
         var inputs = ArazzoInputsReader.parseAndValidateInputs(params.inputsFilePath(), workflow.getInputs());
         System.out.printf("inputs: %s%n", inputs.toString());
 
-        RuntimeExpressionResolver resolver = new RuntimeExpressionResolver(
-                arazzoSpecification, inputs);
+        ArazzoExpressionResolver resolver = new ArazzoExpressionResolver(arazzoSpecification, inputs);
 
         // execute
         for (ArazzoSpecification.Workflow wf : arazzoSpecification.getWorkflows()) {

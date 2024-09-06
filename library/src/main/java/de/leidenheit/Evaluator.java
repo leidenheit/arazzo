@@ -15,10 +15,10 @@ import java.util.regex.Pattern;
 
 public class Evaluator {
 
-    private final RuntimeExpressionResolver resolver;
+    private final ArazzoExpressionResolver resolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    protected Evaluator(final RuntimeExpressionResolver resolver) {
+    protected Evaluator(final ArazzoExpressionResolver resolver) {
         this.resolver = resolver;
     }
 
@@ -35,6 +35,14 @@ public class Evaluator {
         } else {
             return evaluateSimpleCondition(criterion, params);
         }
+    }
+
+    private String resolveContext(final String context, final EvaluatorParams params) {
+        var resolved = resolver.resolveExpression(context, params);
+        if (resolved instanceof String resolvedAsString) {
+            return resolvedAsString;
+        }
+        throw new RuntimeException("Unexpected");
     }
 
     private boolean evaluateSimpleCondition(
@@ -78,9 +86,6 @@ public class Evaluator {
                     String operator = matcher.group("operator");  // Operator
                     String expected = matcher.group("expected");  // Erwarteter Wert
 
-                    System.out.println("Pointer: " + ptr);
-                    System.out.println("Operator: " + operator);
-                    System.out.println("Expected: " + expected);
 
                     // Use JSON Pointer to resolve the node
                     JsonNode nodeAtPointer = jsonNode.at(ptr);
@@ -88,6 +93,10 @@ public class Evaluator {
 
                     // Resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
+
+                    System.out.println("Pointer: " + ptr);
+                    System.out.println("Operator: " + operator);
+                    System.out.println("Expected: " + expected);
 
                     // Evaluate condition based on the extracted node (simple condition)
                     var resolvedCriterion = ArazzoSpecification.Workflow.Step.Criterion.builder()
@@ -109,12 +118,12 @@ public class Evaluator {
                     String operator = matcher.group("operator");  // Operator
                     String expected = matcher.group("expected");  // Erwarteter Wert
 
+                    // Resolve expected if it is an expression
+                    expected = resolver.resolveString(expected);
+
                     System.out.println("Query: " + query);
                     System.out.println("Operator: " + operator);
                     System.out.println("Expected: " + expected);
-
-                    // Resolve expected if it is an expression
-                    expected = resolver.resolveString(expected);
 
                     var jsonNodeValue = JsonPath.parse(jsonNode.toString()).read(query);
                     if (Objects.isNull(jsonNodeValue)) throw new RuntimeException("Unexpected");
@@ -140,26 +149,6 @@ public class Evaluator {
         String contextValue = resolveContext(criterion.getContext(), params);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
         return evaluateXPathExpression(contextValue, criterion.getCondition());
-    }
-
-    private String resolveContext(final String context, final EvaluatorParams params) {
-        if (context.equals("$statusCode")) {
-            return String.valueOf(params.latestStatusCode);
-        } else if (context.startsWith("$response.")) {
-            //TODO move impl to resolver itself
-            if (context.startsWith("$response.body")) {
-                return extractResponseBody(params);
-            } else if (context.startsWith("$response.header")) {
-                var header = context.substring("$response.header.".length());
-                return extractResponseHeader(header, params);
-            }
-        } else if (context.startsWith("$inputs.")) {
-            return resolver.resolveString(context);
-        } else if (context.startsWith("$sourceDescriptions.")) {
-            return resolver.resolveString(context);
-        }
-        // TODO others
-        return null;
     }
 
     private boolean evaluateLogicalExpression(final String condition, final EvaluatorParams params) {
@@ -209,18 +198,6 @@ public class Evaluator {
     private boolean evaluateXPathExpression(final String contextValue, final String condition) {
         // TODO implementation
         throw new RuntimeException("not implemented yet");
-    }
-
-    private String extractResponseBody(final EvaluatorParams params) {
-        var body = params.lastestResponse.body();
-        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
-        return body.asString();
-    }
-
-    private String extractResponseHeader(final String headerName, final EvaluatorParams params) {
-        var header = params.lastestResponse.header(headerName);
-        if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
-        return header;
     }
 
     @Data
