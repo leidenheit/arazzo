@@ -59,10 +59,7 @@ public class ArazzoDeserializer {
             "name", "type", "workflowId", "stepId", "criteria", "retryAfter", "retryLimit", "extensions"
     ));
     protected static final Set<String> CRITERION_KEYS = new LinkedHashSet<>(List.of(
-            "context", "condition", "type", "extensions"
-    ));
-    protected static final Set<String> CRITERION_EXPRESSION_TYPE_OBJECT_KEYS = new LinkedHashSet<>(List.of(
-            "type", "version", "extensions"
+            "context", "condition", "type", "version", "extensions"
     ));
     protected static final Set<String> REQUEST_BODY_KEYS = new LinkedHashSet<>(List.of(
             "contentType", "payload", "replacements", "extensions"
@@ -900,6 +897,15 @@ public class ArazzoDeserializer {
                     ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
                     // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
+
+                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode failureActionObj)) {
+                        var failureAction = getFailureAction(failureActionObj, location, parseResult);
+                        if (Objects.nonNull(failureAction)) {
+                            failureActionList.add(failureAction);
+                        }
+                    }
                 } else {
                     FailureAction failureAction = getFailureAction((ObjectNode) item, location, parseResult);
                     if (Objects.nonNull(failureAction)) {
@@ -927,6 +933,16 @@ public class ArazzoDeserializer {
                     ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
                     // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
+
+                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode successActionObj)) {
+                        var successAction = getSuccessAction(successActionObj, location, parseResult);
+                        if (Objects.nonNull(successAction)) {
+                            successActionList.add(successAction);
+                        }
+                    }
+
                 } else {
                     SuccessAction successAction = getSuccessAction((ObjectNode) item, location, parseResult);
                     if (Objects.nonNull(successAction)) {
@@ -1088,9 +1104,25 @@ public class ArazzoDeserializer {
         List<ArazzoSpecification.Workflow.Step.Parameter> parameters = new ArrayList<>();
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
-                ArazzoSpecification.Workflow.Step.Parameter parameter = getParameter((ObjectNode) item, location, parseResult);
-                if (Objects.nonNull(parameters)) {
-                    parameters.add(parameter);
+                // TODO use this reusable object handling to other places where reusable objects are possible values
+                if (item.has("reference")) {
+                    ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
+                    // TODO resolve and add to result
+                    parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
+
+                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode parameterObj)) {
+                        var parameter = getParameter(parameterObj, location, parseResult);
+                        if (Objects.nonNull(parameter)) {
+                            parameters.add(parameter);
+                        }
+                    }
+                } else {
+                    ArazzoSpecification.Workflow.Step.Parameter parameter = getParameter((ObjectNode) item, location, parseResult);
+                    if (Objects.nonNull(parameters)) {
+                        parameters.add(parameter);
+                    }
                 }
             }
         }

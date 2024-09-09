@@ -31,7 +31,11 @@ workflows:
           # parameters to inject into the findCookie operation (parameter name must be resolvable at the referenced operation and the value is determined using {expression} syntax)
           - name: id
             in: path
-            value: $inputs.cookieId
+            value: '$inputs.cookieId'
+#          - reference: $components.parameters.page
+#            value: '1'
+#          - reference: $components.parameters.pageSize
+#            value: '50'
         successCriteria:
           # assertions to determine step was successful
           - condition: $statusCode == 200
@@ -46,6 +50,10 @@ workflows:
           - context: $statusCode
             condition: '^200$'
             type: regex
+        onSuccess:
+          - reference: $components.successActions.gotoEatCookie
+        onFailure:
+          - reference: $components.failureActions.retryFail
         outputs:
           # outputs from this step
           cookieDto: $response.body
@@ -98,6 +106,14 @@ components:
       name: id
       in: path
       value: $inputs.cookieId
+    page:
+      name: page
+      in: path
+      value: $inputs.pagination.page
+    pageSize:
+      name: pageSize
+      in: path
+      value: $inputs.pagination.pageSize
   inputs:
     cookieIds:
       type: object
@@ -116,20 +132,20 @@ components:
           type: integer
           format: int32
   successActions:
-    successRetrieveCookieAndEatCookie:
+    gotoEatCookie:
       name: successRetrieveCookieAndEatCookieAndEnd
-      type: end
-      workflowId: retrieveCookieAndEatCookie
+      type: goto
+      stepId: eatCookieStep
       criteria:
         # assertions to determine if this action should be executed
         - condition: $statusCode == 202
   failureActions:
-    retryRetrieveCookieAndEatCookie:
+    retryFail:
       name: retryRetrieveCookieAndEatCookieFiveTimes
       type: retry
       retryAfter: 1
       retryLimit: 5
-      workflowId: retrieveCookieAndEatCookie
+      stepId: eatCookieStep
       criteria:
         # assertions to determine if this action should be executed
         - condition: $statusCode == 500
