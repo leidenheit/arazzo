@@ -1,5 +1,9 @@
 package de.leidenheit;
 
+import de.leidenheit.core.execution.ArazzoWorkflowExecutor;
+import de.leidenheit.core.model.ArazzoSpecification;
+import de.leidenheit.integration.annotation.WithWorkflowExecutor;
+import de.leidenheit.integration.extension.ArazzoExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
