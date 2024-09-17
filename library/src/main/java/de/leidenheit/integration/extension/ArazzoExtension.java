@@ -5,7 +5,8 @@ import de.leidenheit.core.execution.ExecutorParams;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.infrastructure.parsing.ArazzoParseOptions;
 import de.leidenheit.infrastructure.parsing.ArazzoParser;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
+import de.leidenheit.infrastructure.validation.ArazzoValidatorRegistry;
 import de.leidenheit.integration.annotation.WithWorkflowExecutor;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.parser.OpenAPIV3Parser;
@@ -31,19 +32,12 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
         // parse and validate
         OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
         ArazzoParser arazzoParser = new ArazzoParser();
-        ArazzoValidator arazzoValidator = new ArazzoValidator();
+        ArazzoValidatorRegistry arazzoValidatorRegistry = new ArazzoValidatorRegistry();
         try {
             ParseOptions oasParseOptions = new ParseOptions();
             oasParseOptions.setResolveFully(true);
             OpenAPI openAPI = oasParser.read(openApiPath, Collections.emptyList(), oasParseOptions);
 
-            /*
-            TODO arazzoSpecification = arazzoParser.parseYamlRaw(new File(arazzoPath));
-            var isValid = arazzoValidator.validateAgainstOpenApi(arazzoSpecification, openAPI);
-            if (!isValid) {
-                throw new RuntimeException("Validation failed");
-            }
-             */
             var options = ArazzoParseOptions.builder()
                     .oaiAuthor(false)
                     .allowEmptyStrings(false)
@@ -55,6 +49,17 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
             arazzoSpecification = result.getArazzo();
+            // TODO validate itself
+            var validationOptions = ArazzoValidationOptions.ofDefault();
+            var validationResult = arazzoValidatorRegistry.validate(arazzoSpecification, validationOptions);
+            if (validationResult.isInvalid()) {
+                throw new RuntimeException("Validation of Arazzo failed: " + validationResult.getMessages());
+            }
+            // TODO validate against OAS;
+            var validationResultAgainstOas = arazzoValidatorRegistry.validateAgainstOpenApi(arazzoSpecification, openAPI);
+            if (validationResultAgainstOas.isInvalid()) {
+                throw new RuntimeException("Validation against OAS failed: " + validationResultAgainstOas.getMessages());
+            }
             arazzoSpecification.setOpenAPI(openAPI);
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
