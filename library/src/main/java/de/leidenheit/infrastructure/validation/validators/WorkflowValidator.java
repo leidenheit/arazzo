@@ -16,4 +16,9 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return Workflow.class.isAssignableFrom(clazz);
+    }
 }

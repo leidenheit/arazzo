@@ -1,22 +1,18 @@
 package de.leidenheit.infrastructure.validation;
 
-
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
+// TODO introduce parameterized handling from POM or equivalent
 public class ArazzoValidationOptions {
-    private boolean strictMode;
+    private boolean failFast;
     private boolean validateReferences;
 
     public static ArazzoValidationOptions ofDefault() {
         return ArazzoValidationOptions.builder()
-                .strictMode(true)
+                .failFast(false)
                 .validateReferences(false)
                 .build();
     }

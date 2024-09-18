@@ -16,4 +16,9 @@ public class ComponentsValidator implements ArazzoValidator<Components> {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return Components.class.isAssignableFrom(clazz);
+    }
 }

@@ -16,4 +16,9 @@ public class CriterionExpressionTypeObjectValidator implements ArazzoValidator<C
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return CriterionExpressionTypeObject.class.isAssignableFrom(clazz);
+    }
 }

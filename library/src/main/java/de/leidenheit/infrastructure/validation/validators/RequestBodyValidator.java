@@ -16,4 +16,9 @@ public class RequestBodyValidator implements ArazzoValidator<RequestBody> {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return RequestBody.class.isAssignableFrom(clazz);
+    }
 }

@@ -8,4 +8,6 @@ public interface ArazzoValidator<T> {
             final T partOfArazzo,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions);
+
+    boolean supports(final Class<?> clazz);
 }

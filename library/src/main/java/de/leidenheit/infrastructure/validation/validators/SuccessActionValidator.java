@@ -16,4 +16,9 @@ public class SuccessActionValidator implements ArazzoValidator<SuccessAction> {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return SuccessAction.class.isAssignableFrom(clazz);
+    }
 }

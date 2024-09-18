@@ -1565,6 +1565,7 @@ public class ArazzoDeserializer {
         return schemas;
     }
 
+    // TODO refactor into ArazzoParseResult; analog ArazzoValidationResult
     public static class ParseResult {
         private boolean valid = true;
         private Map<Location, JsonNode> extra = new LinkedHashMap<>();

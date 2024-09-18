@@ -16,4 +16,9 @@ public class PayloadReplacementObjectValidator implements ArazzoValidator<Payloa
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return PayloadReplacementObject.class.isAssignableFrom(clazz);
+    }
 }

@@ -16,4 +16,9 @@ public class ParameterValidator implements ArazzoValidator<Parameter> {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return Parameter.class.isAssignableFrom(clazz);
+    }
 }

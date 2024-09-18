@@ -16,4 +16,9 @@ public class ReusableObjectValidator implements ArazzoValidator<ReusableObject> 
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return ReusableObject.class.isAssignableFrom(clazz);
+    }
 }

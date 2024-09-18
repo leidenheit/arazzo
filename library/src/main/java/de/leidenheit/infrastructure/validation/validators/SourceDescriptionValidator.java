@@ -16,4 +16,9 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
+
+    @Override
+    public boolean supports(final Class<?> clazz) {
+        return SourceDescription.class.isAssignableFrom(clazz);
+    }
 }
