@@ -18,8 +18,9 @@ public class ArazzoValidationResult {
     private final List<Location> warningList = new ArrayList<>();
     private final List<Location> uniqueList = new ArrayList<>();
     private final List<Location> reservedList = new ArrayList<>();
+    private final List<Location> errorList = new ArrayList<>();
 
-    public void addOtherValidationResult(final ArazzoValidationResult otherResult) {
+    public void merge(final ArazzoValidationResult otherResult) {
         if (otherResult.invalid) {
             setInvalid(true);
         }
@@ -54,6 +55,11 @@ public class ArazzoValidationResult {
         setInvalid(true);
     }
 
+    public void addError(final String location, final String key) {
+        errorList.add(new Location(location, key));
+        setInvalid(true);
+    }
+
     public List<String> getMessages() {
         List<String> messages = new ArrayList<>();
 
@@ -83,8 +89,18 @@ public class ArazzoValidationResult {
             String message = "Attribute " + location + l.key + " is reserved by the Arazzo Specification";
             messages.add(message);
         }
+        for (Location l : errorList) {
+            String location = l.location.isEmpty() ? "" : l.location + ".";
+            String message = location + l.key;
+            messages.add(message);
+        }
         return messages;
     }
 
-    protected record Location(String location, String key) {}
+    public record Location(String location, String key) {
+
+        public static Location of(final String location, final String key) {
+            return new Location(location, key);
+        }
+    }
 }

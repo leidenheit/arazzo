@@ -42,7 +42,12 @@ public class ArazzoValidatorRegistry {
         var result = ArazzoValidationResult.builder().build();
 
         // info
-        result.addOtherValidationResult(validateObject(arazzo.getInfo(), arazzo, options));
+        result.merge(validateObject(arazzo.getInfo(), arazzo, options));
+
+        // sourceDescriptions
+        arazzo.getSourceDescriptions().forEach(sourceDescription ->
+            result.merge(validateObject(sourceDescription, arazzo, options))
+        );
 
         // TODO finalize implementation
         //  forEach element do validate

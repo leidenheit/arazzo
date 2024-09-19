@@ -13,7 +13,8 @@ import java.util.Map;
 public class SourceDescription {
     private String name;
     private String url;
-    private SourceDescriptionType type;
+    @Builder.Default
+    private SourceDescriptionType type = SourceDescriptionType.OPENAPI;
     private Map<String, Object> extensions;
 
     @Getter
