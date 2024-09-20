@@ -4,11 +4,11 @@ import com.google.common.base.Strings;
 import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.Objects;
 
-public class FailureActionValidator implements ArazzoValidator<FailureAction> {
+public class FailureActionValidator implements Validator<FailureAction> {
 
     private static final String LOCATION = "failureObject";
 

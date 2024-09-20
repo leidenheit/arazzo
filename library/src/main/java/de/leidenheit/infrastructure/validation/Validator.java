@@ -2,7 +2,7 @@ package de.leidenheit.infrastructure.validation;
 
 import de.leidenheit.core.model.ArazzoSpecification;
 
-public interface ArazzoValidator<T> {
+public interface Validator<T> {
 
     // TODO utilize OAS in validators
     <C> ArazzoValidationResult validate(

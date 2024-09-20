@@ -5,13 +5,13 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Objects;
 
-public class SourceDescriptionValidator implements ArazzoValidator<SourceDescription> {
+public class SourceDescriptionValidator implements Validator<SourceDescription> {
 
     private static final String LOCATION = "sourceDescription";
 

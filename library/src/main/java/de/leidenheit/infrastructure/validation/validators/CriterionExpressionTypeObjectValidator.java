@@ -1,12 +1,18 @@
 package de.leidenheit.infrastructure.validation.validators;
 
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.CriterionExpressionTypeObject;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
-public class CriterionExpressionTypeObjectValidator implements ArazzoValidator<CriterionExpressionTypeObject> {
+import java.util.List;
+import java.util.Objects;
+
+public class CriterionExpressionTypeObjectValidator implements Validator<CriterionExpressionTypeObject> {
+
+    private static final String LOCATION = "criterionExpressionTypeObject";
 
     @Override
     public <C> ArazzoValidationResult validate(
@@ -14,8 +20,28 @@ public class CriterionExpressionTypeObjectValidator implements ArazzoValidator<C
             final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions) {
-        // TODO finalize implementation
-        return ArazzoValidationResult.builder().build();
+        var result = ArazzoValidationResult.builder().build();
+
+        if (Objects.isNull(criterionExpressionTypeObject.getType())) result.addError(LOCATION, "'type' is mandatory");
+        if (Strings.isNullOrEmpty(criterionExpressionTypeObject.getVersion())) result.addError(LOCATION, "'version' is mandatory");
+
+        if (CriterionExpressionTypeObject.CriterionExpressionType.JSONPATH.equals(criterionExpressionTypeObject.getType())) {
+            if (!"draft-goessner-dispatch-jsonpath-00".equals(criterionExpressionTypeObject.getVersion())) {
+                result.addError(LOCATION, "'version' invalid for jsonpath");
+            }
+        } else if (CriterionExpressionTypeObject.CriterionExpressionType.XPATH.equals(criterionExpressionTypeObject.getType())) {
+            List<String> allowedVersions = List.of("xpath-30", "xpath-20", "xpath-10");
+            if (!allowedVersions.contains(criterionExpressionTypeObject.getVersion())) {
+                result.addError(LOCATION, "'version' invalid for xpath");
+            }
+        }
+
+        if (Objects.nonNull(criterionExpressionTypeObject.getExtensions()) && !criterionExpressionTypeObject.getExtensions().isEmpty()) {
+            var extensionValidator = new ExtensionsValidator();
+            result.merge(extensionValidator.validate(criterionExpressionTypeObject.getExtensions(), criterionExpressionTypeObject, arazzo, validationOptions));
+        }
+
+        return result;
     }
 
     @Override

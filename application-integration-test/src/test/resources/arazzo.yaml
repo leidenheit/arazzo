@@ -29,11 +29,11 @@ workflows:
         operationId: findCookie
         parameters:
           # parameters to inject into the findCookie operation (parameter name must be resolvable at the referenced operation and the value is determined using {expression} syntax)
-          - name: id
-            in: path
-            value: '$inputs.cookieId'
-#          - reference: $components.parameters.page
-#            value: '1'
+#          - name: id
+#            in: path
+#            value: '$inputs.cookieId'
+          - reference: $components.parameters.id
+            value: '1'
 #          - reference: $components.parameters.pageSize
 #            value: '50'
         successCriteria:

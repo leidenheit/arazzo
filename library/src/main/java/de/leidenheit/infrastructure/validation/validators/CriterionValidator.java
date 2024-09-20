@@ -5,13 +5,13 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Criterion;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-public class CriterionValidator implements ArazzoValidator<Criterion> {
+public class CriterionValidator implements Validator<Criterion> {
 
     public static final String LOCATION = "criterion";
 
@@ -25,11 +25,13 @@ public class CriterionValidator implements ArazzoValidator<Criterion> {
         if (Strings.isNullOrEmpty(criterion.getCondition())) result.addError(LOCATION, "'condition' is mandatory");
 
         if (Objects.nonNull(criterion.getType())) {
-            if (Criterion.CriterionType.SIMPLE.equals(criterion.getType())) {
+            if (Criterion.CriterionType.REGEX.equals(criterion.getType())) {
                 if (Strings.isNullOrEmpty(criterion.getContext())) {
-                    result.addError(LOCATION, "'simple' requires 'context' to be defined");
+                    result.addError(LOCATION, "'regex' requires 'context' to be defined");
                 }
-            } else {
+            } else if (Criterion.CriterionType.JSONPATH.equals(criterion.getType())
+                    || Criterion.CriterionType.XPATH.equals(criterion.getType())
+            ) {
                 var criterionExpressionTypeObjectValidator = new CriterionExpressionTypeObjectValidator();
                 result.merge(criterionExpressionTypeObjectValidator.validate(criterion.getExpressionTypeObject(), criterion, arazzo, validationOptions));
 

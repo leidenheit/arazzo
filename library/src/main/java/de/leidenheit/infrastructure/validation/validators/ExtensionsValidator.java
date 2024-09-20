@@ -3,12 +3,12 @@ package de.leidenheit.infrastructure.validation.validators;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.List;
 import java.util.Map;
 
-public class ExtensionsValidator implements ArazzoValidator<Map<String, Object>> {
+public class ExtensionsValidator implements Validator<Map<String, Object>> {
 
     private static final String LOCATION = "extensions";
 

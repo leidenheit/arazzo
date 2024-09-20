@@ -1,6 +1,7 @@
 package de.leidenheit.infrastructure.validation;
 
 
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.infrastructure.validation.validators.*;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -11,7 +12,8 @@ import java.util.Objects;
 
 public class ArazzoValidatorRegistry {
 
-    private final List<ArazzoValidator<?>> validators = new ArrayList<>(
+    private static final String LOCATION = "arazzoSpec";
+    private final List<Validator<?>> validators = new ArrayList<>(
             // register default validators
             List.of(
                     new InfoValidator(),
@@ -29,7 +31,7 @@ public class ArazzoValidatorRegistry {
                     new ComponentsValidator()
             ));
 
-    public void register(final ArazzoValidator<?> validator) {
+    public void register(final Validator<?> validator) {
         validators.add(validator);
     }
 
@@ -40,6 +42,12 @@ public class ArazzoValidatorRegistry {
 
     public ArazzoValidationResult validate(final ArazzoSpecification arazzo, final ArazzoValidationOptions options) {
         var result = ArazzoValidationResult.builder().build();
+
+        if (Strings.isNullOrEmpty(arazzo.getArazzo())) {
+            result.addError(LOCATION, "'arazzo' is mandatory");
+        } else if (!isSemanticVersioningFormat(arazzo.getArazzo())) {
+            result.addWarning(LOCATION, "'arazzo' does not adhere to semantic versioning");
+        }
 
         // info
         result.merge(validateObject(arazzo.getInfo(), null, arazzo, options));
@@ -54,8 +62,16 @@ public class ArazzoValidatorRegistry {
                 result.merge(validateObject(workflow, null, arazzo, options))
         );
 
-        // TODO finalize implementation
-        //  forEach element do validate
+        // components
+        if (Objects.nonNull(arazzo.getComponents())) {
+            result.merge(validateObject(arazzo.getComponents(), null, arazzo, options));
+        }
+
+        // extensions
+        if (Objects.nonNull(arazzo.getExtensions()) && !arazzo.getExtensions().isEmpty()) {
+            var extensionValidator = new ExtensionsValidator();
+            result.merge(extensionValidator.validate(arazzo.getExtensions(), null, arazzo, options));
+        }
 
         return result;
     }
@@ -66,17 +82,21 @@ public class ArazzoValidatorRegistry {
             final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions options) {
-        ArazzoValidator<T> validator = (ArazzoValidator<T>) findValidatorForObject(partOfArazzo);
+        Validator<T> validator = (Validator<T>) findValidatorForObject(partOfArazzo);
         if (Objects.isNull(validator)) throw new RuntimeException("Unexpected");
         return validator.validate(partOfArazzo, context, arazzo, options);
     }
 
-    private <T> ArazzoValidator<?> findValidatorForObject(final T partOfArazzo) {
-        for (ArazzoValidator<?> validator : validators) {
+    private <T> Validator<?> findValidatorForObject(final T partOfArazzo) {
+        for (Validator<?> validator : validators) {
             if (validator.supports(partOfArazzo.getClass())) {
                 return validator;
             }
         }
         return null;
+    }
+
+    private boolean isSemanticVersioningFormat(final String version) {
+        return version.matches("\\d+\\.\\d+\\.\\d+");
     }
 }

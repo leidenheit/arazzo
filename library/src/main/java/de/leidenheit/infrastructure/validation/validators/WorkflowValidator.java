@@ -5,11 +5,11 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.Objects;
 
-public class WorkflowValidator implements ArazzoValidator<Workflow> {
+public class WorkflowValidator implements Validator<Workflow> {
 
     private static final String LOCATION = "workflow";
 

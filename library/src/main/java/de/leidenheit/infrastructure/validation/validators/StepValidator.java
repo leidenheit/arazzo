@@ -6,11 +6,11 @@ import de.leidenheit.core.model.Step;
 import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.Objects;
 
-public class StepValidator implements ArazzoValidator<Step> {
+public class StepValidator implements Validator<Step> {
 
     private static final String LOCATION = "step";
 

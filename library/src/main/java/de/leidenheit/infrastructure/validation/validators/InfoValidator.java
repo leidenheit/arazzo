@@ -1,14 +1,15 @@
 package de.leidenheit.infrastructure.validation.validators;
 
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Info;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
 import java.util.Objects;
 
-public class InfoValidator implements ArazzoValidator<Info> {
+public class InfoValidator implements Validator<Info> {
 
     private static final String LOCATION = "info";
 
@@ -19,9 +20,9 @@ public class InfoValidator implements ArazzoValidator<Info> {
                                                final ArazzoValidationOptions validationOptions) {
         var result = ArazzoValidationResult.builder().build();
 
-        if (Objects.isNull(info.getTitle())) result.addError(LOCATION, "'title' is mandatory");
+        if (Strings.isNullOrEmpty(info.getTitle())) result.addError(LOCATION, "'title' is mandatory");
 
-        if (Objects.isNull(info.getVersion())) {
+        if (Strings.isNullOrEmpty(info.getVersion())) {
             result.addError(LOCATION, "'version' is mandatory");
         } else if (!isSemanticVersioningFormat(info.getVersion())) {
             result.addWarning(LOCATION, "'version' does not adhere to semantic versioning");

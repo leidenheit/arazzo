@@ -1,20 +1,34 @@
 package de.leidenheit.infrastructure.validation.validators;
 
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.PayloadReplacementObject;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
-import de.leidenheit.infrastructure.validation.ArazzoValidator;
+import de.leidenheit.infrastructure.validation.Validator;
 
-public class PayloadReplacementObjectValidator implements ArazzoValidator<PayloadReplacementObject> {
+import java.util.Objects;
+
+public class PayloadReplacementObjectValidator implements Validator<PayloadReplacementObject> {
+
+    public static final String LOCATION = "payloadReplacementObject";
 
     @Override
     public <C> ArazzoValidationResult validate(final PayloadReplacementObject payloadReplacementObject,
                                                final C context,
                                                final ArazzoSpecification arazzo,
                                                final ArazzoValidationOptions validationOptions) {
-        // TODO finalize implementation
-        return ArazzoValidationResult.builder().build();
+        var result = ArazzoValidationResult.builder().build();
+
+        if (Strings.isNullOrEmpty(payloadReplacementObject.getTarget())) result.addError(LOCATION, "'target' is mandatory");
+        if (Objects.isNull(payloadReplacementObject.getValue())) result.addError(LOCATION, "'value' is mandatory");
+
+        if (Objects.nonNull(payloadReplacementObject.getExtensions()) && !payloadReplacementObject.getExtensions().isEmpty()) {
+            var extensionValidator = new ExtensionsValidator();
+            result.merge(extensionValidator.validate(payloadReplacementObject.getExtensions(), payloadReplacementObject, arazzo, validationOptions));
+        }
+
+        return result;
     }
 
     @Override
