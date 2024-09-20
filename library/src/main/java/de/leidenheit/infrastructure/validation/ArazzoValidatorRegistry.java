@@ -42,16 +42,16 @@ public class ArazzoValidatorRegistry {
         var result = ArazzoValidationResult.builder().build();
 
         // info
-        result.merge(validateObject(arazzo.getInfo(), arazzo, options));
+        result.merge(validateObject(arazzo.getInfo(), null, arazzo, options));
 
         // sourceDescriptions
         arazzo.getSourceDescriptions().forEach(sourceDescription ->
-                result.merge(validateObject(sourceDescription, arazzo, options))
+                result.merge(validateObject(sourceDescription, null, arazzo, options))
         );
 
         // workflows
         arazzo.getWorkflows().forEach(workflow ->
-                result.merge(validateObject(workflow, arazzo, options))
+                result.merge(validateObject(workflow, null, arazzo, options))
         );
 
         // TODO finalize implementation
@@ -61,13 +61,14 @@ public class ArazzoValidatorRegistry {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> ArazzoValidationResult validateObject(
+    private <T, C> ArazzoValidationResult validateObject(
             final T partOfArazzo,
+            final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions options) {
         ArazzoValidator<T> validator = (ArazzoValidator<T>) findValidatorForObject(partOfArazzo);
         if (Objects.isNull(validator)) throw new RuntimeException("Unexpected");
-        return validator.validate(partOfArazzo, arazzo, options);
+        return validator.validate(partOfArazzo, context, arazzo, options);
     }
 
     private <T> ArazzoValidator<?> findValidatorForObject(final T partOfArazzo) {

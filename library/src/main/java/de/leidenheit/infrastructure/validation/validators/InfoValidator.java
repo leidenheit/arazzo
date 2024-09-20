@@ -13,10 +13,10 @@ public class InfoValidator implements ArazzoValidator<Info> {
     private static final String LOCATION = "info";
 
     @Override
-    public ArazzoValidationResult validate(
-            final Info info,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final Info info,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         var result = ArazzoValidationResult.builder().build();
 
         if (Objects.isNull(info.getTitle())) result.addError(LOCATION, "'title' is mandatory");
@@ -29,7 +29,7 @@ public class InfoValidator implements ArazzoValidator<Info> {
 
         if (Objects.nonNull(info.getExtensions()) && !info.getExtensions().isEmpty()) {
             var extensionValidator = new ExtensionsValidator();
-            result.merge(extensionValidator.validate(info.getExtensions(), arazzo, validationOptions));
+            result.merge(extensionValidator.validate(info.getExtensions(), info, arazzo, validationOptions));
         }
 
         return result;

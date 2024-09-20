@@ -4,8 +4,10 @@ import de.leidenheit.core.model.ArazzoSpecification;
 
 public interface ArazzoValidator<T> {
 
-    ArazzoValidationResult validate(
+    // TODO utilize OAS in validators
+    <C> ArazzoValidationResult validate(
             final T partOfArazzo,
+            final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions);
 

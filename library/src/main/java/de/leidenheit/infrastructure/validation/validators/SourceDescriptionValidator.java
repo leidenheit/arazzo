@@ -16,10 +16,10 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
     private static final String LOCATION = "sourceDescription";
 
     @Override
-    public ArazzoValidationResult validate(
-            final SourceDescription sourceDescription,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final SourceDescription sourceDescription,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         var result = ArazzoValidationResult.builder().build();
 
         if (Strings.isNullOrEmpty(sourceDescription.getName())) {
@@ -43,7 +43,7 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
 
         if (Objects.nonNull(sourceDescription.getExtensions()) && !sourceDescription.getExtensions().isEmpty()) {
             var extensionValidator = new ExtensionsValidator();
-            result.merge(extensionValidator.validate(sourceDescription.getExtensions(), arazzo, validationOptions));
+            result.merge(extensionValidator.validate(sourceDescription.getExtensions(), sourceDescription, arazzo, validationOptions));
         }
 
         return result;

@@ -13,10 +13,10 @@ public class ExtensionsValidator implements ArazzoValidator<Map<String, Object>>
     private static final String LOCATION = "extensions";
 
     @Override
-    public ArazzoValidationResult validate(
-            final Map<String, Object> extensions,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final Map<String, Object> extensions,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
 
         var result = ArazzoValidationResult.builder().build();
 

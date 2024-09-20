@@ -9,8 +9,9 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 public class CriterionExpressionTypeObjectValidator implements ArazzoValidator<CriterionExpressionTypeObject> {
 
     @Override
-    public ArazzoValidationResult validate(
-            final CriterionExpressionTypeObject partOfArazzo,
+    public <C> ArazzoValidationResult validate(
+            final CriterionExpressionTypeObject criterionExpressionTypeObject,
+            final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions) {
         // TODO finalize implementation

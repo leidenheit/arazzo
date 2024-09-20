@@ -14,10 +14,10 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
     private static final String LOCATION = "workflow";
 
     @Override
-    public ArazzoValidationResult validate(
-            final Workflow workflow,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final Workflow workflow,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         var result = ArazzoValidationResult.builder().build();
 
         if (Strings.isNullOrEmpty(workflow.getWorkflowId())) {
@@ -47,7 +47,7 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
         } else {
             var stepValidator = new StepValidator();
             workflow.getSteps().forEach(step ->
-                    result.merge(stepValidator.validate(step, arazzo, validationOptions)));
+                    result.merge(stepValidator.validate(step, workflow, arazzo, validationOptions)));
         }
 
         if (Objects.nonNull(workflow.getSuccessActions())) {
@@ -56,7 +56,7 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
 
             var successActionValidator = new SuccessActionValidator();
             workflow.getSuccessActions().forEach(successAction ->
-                    result.merge(successActionValidator.validate(successAction, arazzo, validationOptions)));
+                    result.merge(successActionValidator.validate(successAction, workflow, arazzo, validationOptions)));
         }
 
         if (Objects.nonNull(workflow.getFailureActions())) {
@@ -65,7 +65,7 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
 
             var failureActionValidator = new FailureActionValidator();
             workflow.getFailureActions().forEach(failureAction ->
-                    result.merge(failureActionValidator.validate(failureAction, arazzo, validationOptions)));
+                    result.merge(failureActionValidator.validate(failureAction, workflow, arazzo, validationOptions)));
         }
 
         if (Objects.nonNull(workflow.getOutputs())) {
@@ -81,12 +81,12 @@ public class WorkflowValidator implements ArazzoValidator<Workflow> {
 
             var parameterValidator = new ParameterValidator();
             workflow.getParameters().forEach(parameter -> result.merge(
-                    parameterValidator.validate(parameter, arazzo, validationOptions)));
+                    parameterValidator.validate(parameter, workflow, arazzo, validationOptions)));
         }
 
         if (Objects.nonNull(workflow.getExtensions()) && !workflow.getExtensions().isEmpty()) {
             var extensionValidator = new ExtensionsValidator();
-            result.merge(extensionValidator.validate(workflow.getExtensions(), arazzo, validationOptions));
+            result.merge(extensionValidator.validate(workflow.getExtensions(), workflow, arazzo, validationOptions));
         }
 
         return result;

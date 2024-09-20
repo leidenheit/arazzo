@@ -9,8 +9,9 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 public class ComponentsValidator implements ArazzoValidator<Components> {
 
     @Override
-    public ArazzoValidationResult validate(
-            final Components partOfArazzo,
+    public <C> ArazzoValidationResult validate(
+            final Components components,
+            final C context,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions) {
         // TODO finalize implementation

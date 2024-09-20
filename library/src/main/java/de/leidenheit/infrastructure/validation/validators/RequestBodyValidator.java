@@ -9,10 +9,10 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 public class RequestBodyValidator implements ArazzoValidator<RequestBody> {
 
     @Override
-    public ArazzoValidationResult validate(
-            final RequestBody partOfArazzo,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final RequestBody requestBody,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }

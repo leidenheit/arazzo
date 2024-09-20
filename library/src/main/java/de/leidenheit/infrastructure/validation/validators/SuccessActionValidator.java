@@ -9,10 +9,10 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 public class SuccessActionValidator implements ArazzoValidator<SuccessAction> {
 
     @Override
-    public ArazzoValidationResult validate(
-            final SuccessAction partOfArazzo,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final SuccessAction successAction,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }

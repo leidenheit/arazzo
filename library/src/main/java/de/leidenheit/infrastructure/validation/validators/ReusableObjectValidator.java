@@ -9,10 +9,10 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 public class ReusableObjectValidator implements ArazzoValidator<ReusableObject> {
 
     @Override
-    public ArazzoValidationResult validate(
-            final ReusableObject partOfArazzo,
-            final ArazzoSpecification arazzo,
-            final ArazzoValidationOptions validationOptions) {
+    public <C> ArazzoValidationResult validate(final ReusableObject reusableObject,
+                                               final C context,
+                                               final ArazzoSpecification arazzo,
+                                               final ArazzoValidationOptions validationOptions) {
         // TODO finalize implementation
         return ArazzoValidationResult.builder().build();
     }
