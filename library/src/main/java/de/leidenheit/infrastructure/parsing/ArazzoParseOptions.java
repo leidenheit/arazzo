@@ -9,6 +9,6 @@ public class ArazzoParseOptions {
 
     private final boolean oaiAuthor;
     private final boolean allowEmptyStrings;
-    private final boolean validateInternalRefs; // TODO implementation
+    private final boolean mustValidate; // TODO implementation
     private final boolean resolve; // TODO implementation
 }

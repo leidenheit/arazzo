@@ -8,7 +8,7 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 import java.util.List;
 import java.util.Map;
 
-public class ExtensionValidator implements ArazzoValidator<Map<String, Object>> {
+public class ExtensionsValidator implements ArazzoValidator<Map<String, Object>> {
 
     private static final String LOCATION = "extensions";
 
@@ -26,10 +26,6 @@ public class ExtensionValidator implements ArazzoValidator<Map<String, Object>> 
 
             if (!key.startsWith("x-")) {
                 result.addError(LOCATION, "'%s' must begin with 'x-'.".formatted(key));
-            }
-
-            if (key.startsWith("x-oai-") || key.startsWith("x-oas-") || key.startsWith("x-arazzo")) {
-                result.addReserved(LOCATION, "'%s' is reserved and should be used cautiously.".formatted(key));
             }
 
             if (!isValidExtensionValue(value)) {

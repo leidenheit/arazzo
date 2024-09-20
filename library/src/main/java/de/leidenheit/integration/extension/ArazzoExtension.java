@@ -41,7 +41,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
             var options = ArazzoParseOptions.builder()
                     .oaiAuthor(false)
                     .allowEmptyStrings(false)
-                    .validateInternalRefs(true)
+                    .mustValidate(true)
                     .resolve(true)
                     .build();
             var result = arazzoParser.readLocation(arazzoPath, options);
@@ -49,18 +49,11 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
             arazzoSpecification = result.getArazzo();
-            // TODO validate itself
-            var validationOptions = ArazzoValidationOptions.ofDefault();
-            var validationResult = arazzoValidatorRegistry.validate(arazzoSpecification, validationOptions);
-            if (validationResult.isInvalid()) {
-                throw new RuntimeException("Validation of Arazzo failed: " + validationResult.getMessages());
-            }
-            // TODO validate against OAS;
-            var validationResultAgainstOas = arazzoValidatorRegistry.validateAgainstOpenApi(arazzoSpecification, openAPI);
-            if (validationResultAgainstOas.isInvalid()) {
-                throw new RuntimeException("Validation against OAS failed: " + validationResultAgainstOas.getMessages());
-            }
             arazzoSpecification.setOpenAPI(openAPI);
+
+            // TODO temp validation
+            var validateOptions = ArazzoValidationOptions.ofDefault();
+            var validationResult = arazzoValidatorRegistry.validate(arazzoSpecification, validateOptions);
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
         } catch (Exception e) {

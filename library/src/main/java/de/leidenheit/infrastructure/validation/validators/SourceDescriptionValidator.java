@@ -1,5 +1,6 @@
 package de.leidenheit.infrastructure.validation.validators;
 
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
@@ -8,11 +9,10 @@ import de.leidenheit.infrastructure.validation.ArazzoValidator;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.regex.Pattern;
+import java.util.Objects;
 
 public class SourceDescriptionValidator implements ArazzoValidator<SourceDescription> {
 
-    private static final Pattern NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_\\-]+$");
     private static final String LOCATION = "sourceDescription";
 
     @Override
@@ -20,18 +20,15 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
             final SourceDescription sourceDescription,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions) {
-
         var result = ArazzoValidationResult.builder().build();
 
-        if (sourceDescription.getName() == null || sourceDescription.getName().isEmpty()) {
-            result.addMissing(LOCATION, "name");
-        } else if (!isValidPattern(sourceDescription.getName(), NAME_PATTERN)) {
-            result.addWarning(LOCATION, "'name' field should match the regular expression %s.".formatted(NAME_PATTERN.toString()));
+        if (Strings.isNullOrEmpty(sourceDescription.getName())) {
+            result.addError(LOCATION, "'name' is mandatory");
+        } else if (!isRecommendedNameFormat(sourceDescription.getName())) {
+            result.addWarning(LOCATION, "name '%s' does not comply to [A-Za-z0-9_\\-]+.".formatted(sourceDescription.getName()));
         }
 
-        if (sourceDescription.getUrl() == null || sourceDescription.getUrl().isEmpty()) {
-            result.addMissing(LOCATION, "url");
-        } else {
+        if (!Strings.isNullOrEmpty(sourceDescription.getUrl())) {
             try {
                 URI uri = new URI(sourceDescription.getUrl());
                 if (!uri.isAbsolute() && !uri.isOpaque()) {
@@ -40,12 +37,15 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
             } catch (URISyntaxException e) {
                 result.addInvalidType(LOCATION, "'url' error: %s".formatted(e.getMessage()), "must be a valid URI reference as per RFC3986");
             }
+        } else {
+            result.addError(LOCATION, "'url' is mandatory");
         }
 
-        if (!sourceDescription.getExtensions().isEmpty()) {
-            var extensionValidator = new ExtensionValidator();
+        if (Objects.nonNull(sourceDescription.getExtensions()) && !sourceDescription.getExtensions().isEmpty()) {
+            var extensionValidator = new ExtensionsValidator();
             result.merge(extensionValidator.validate(sourceDescription.getExtensions(), arazzo, validationOptions));
         }
+
         return result;
     }
 
@@ -54,7 +54,7 @@ public class SourceDescriptionValidator implements ArazzoValidator<SourceDescrip
         return SourceDescription.class.isAssignableFrom(clazz);
     }
 
-    private boolean isValidPattern(final String input, final Pattern pattern) {
-        return pattern.matcher(input).matches();
+    private boolean isRecommendedNameFormat(final String name) {
+        return name.matches("^[A-Za-z0-9_\\-]+$");
     }
 }

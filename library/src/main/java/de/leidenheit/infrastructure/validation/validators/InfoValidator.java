@@ -1,11 +1,12 @@
 package de.leidenheit.infrastructure.validation.validators;
 
-import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Info;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.ArazzoValidator;
+
+import java.util.Objects;
 
 public class InfoValidator implements ArazzoValidator<Info> {
 
@@ -16,28 +17,21 @@ public class InfoValidator implements ArazzoValidator<Info> {
             final Info info,
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions validationOptions) {
-
         var result = ArazzoValidationResult.builder().build();
 
-        if (Strings.isNullOrEmpty(info.getTitle())) {
-            result.addMissing(LOCATION, "title");
-            if (validationOptions.isFailFast()) {
-                return result;
-            }
-        }
-        if (Strings.isNullOrEmpty(info.getVersion())) {
-            result.addMissing(LOCATION, "version");
-            if (validationOptions.isFailFast()) {
-                return result;
-            }
+        if (Objects.isNull(info.getTitle())) result.addError(LOCATION, "'title' is mandatory");
+
+        if (Objects.isNull(info.getVersion())) {
+            result.addError(LOCATION, "'version' is mandatory");
         } else if (!isSemanticVersioningFormat(info.getVersion())) {
             result.addWarning(LOCATION, "'version' does not adhere to semantic versioning");
         }
 
-        if (!info.getExtensions().isEmpty()) {
-            var extensionValidator = new ExtensionValidator();
+        if (Objects.nonNull(info.getExtensions()) && !info.getExtensions().isEmpty()) {
+            var extensionValidator = new ExtensionsValidator();
             result.merge(extensionValidator.validate(info.getExtensions(), arazzo, validationOptions));
         }
+
         return result;
     }
 

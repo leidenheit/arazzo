@@ -46,7 +46,12 @@ public class ArazzoValidatorRegistry {
 
         // sourceDescriptions
         arazzo.getSourceDescriptions().forEach(sourceDescription ->
-            result.merge(validateObject(sourceDescription, arazzo, options))
+                result.merge(validateObject(sourceDescription, arazzo, options))
+        );
+
+        // workflows
+        arazzo.getWorkflows().forEach(workflow ->
+                result.merge(validateObject(workflow, arazzo, options))
         );
 
         // TODO finalize implementation

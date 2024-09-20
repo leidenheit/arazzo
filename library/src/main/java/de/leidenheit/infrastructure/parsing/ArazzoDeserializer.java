@@ -1,6 +1,5 @@
 package de.leidenheit.infrastructure.parsing;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -8,8 +7,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.leidenheit.core.execution.resolving.ArazzoComponentRefResolver;
 import de.leidenheit.core.model.*;
-import io.swagger.v3.oas.models.media.Schema;
-import io.swagger.v3.parser.ResolverCache;
+import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
+import lombok.Builder;
+import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
@@ -72,9 +72,6 @@ public class ArazzoDeserializer {
     protected static final Set<String> REUSABLE_OBJECT_KEYS = new LinkedHashSet<>(List.of(
             "reference", "value"
     ));
-    protected static final Set<String> SCHEMA_KEYS = new LinkedHashSet<>(List.of(
-            "format"
-    ));
     protected static Map<String, Map<String, Set<String>>> KEYS = new LinkedHashMap<>();
     protected static Set<JsonNodeType> validNodeTypes = new LinkedHashSet<>(List.of(
             JsonNodeType.OBJECT, JsonNodeType.STRING
@@ -95,7 +92,6 @@ public class ArazzoDeserializer {
         keys10.put("SOURCE_DESCRIPTION_KEYS", SOURCE_DESCRIPTION_KEYS);
         keys10.put("WORKFLOW_KEYS", WORKFLOW_KEYS);
         keys10.put("STEP_KEYS", STEP_KEYS);
-        keys10.put("SCHEMA_KEYS", SCHEMA_KEYS);
         keys10.put("COMPONENTS_KEYS", COMPONENTS_KEYS);
         keys10.put("PARAMETER_KEYS", PARAMETER_KEYS);
         keys10.put("SUCCESS_ACTION_KEYS", SUCCESS_ACTION_KEYS);
@@ -108,33 +104,17 @@ public class ArazzoDeserializer {
         KEYS.put("arazzo10", keys10);
     }
 
-    private static final int MAX_EXTENSION_ENTRIES = 20;
-
-    // Holds extensions to a given classloader. Implemented as a least-recently used cache
-    private static final Map<ClassLoader, List<JsonSchemaParserExtension>> jsonSchemaParserExtensionMap = new LinkedHashMap<ClassLoader, List<JsonSchemaParserExtension>>() {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<ClassLoader, List<JsonSchemaParserExtension>> eldest) {
-            return size() > MAX_EXTENSION_ENTRIES;
-        }
-    };
-
-    private Components components;
     private JsonNode rootNode;
-    private Map<String, Object> rootMap;
-    private String basePath;
     private final Set<String> workflowIds = new HashSet<>();
 
     public ArazzoParseResult deserialize(final JsonNode node, final String path, final ArazzoParseOptions options) {
-        basePath = path;
         rootNode = node;
-        rootMap = new ObjectMapper().convertValue(rootNode, new TypeReference<>() {
-        });
         ArazzoParseResult result = new ArazzoParseResult();
         try {
-            ParseResult rootParseResult = new ParseResult();
+            ParseResult rootParseResult = ParseResult.builder().build();
             rootParseResult.setOaiAuthor(options.isOaiAuthor());
             rootParseResult.setAllowEmptyStrings(options.isAllowEmptyStrings());
-            rootParseResult.setValidateInternalRefs(options.isValidateInternalRefs());
+            rootParseResult.setMustValidate(options.isMustValidate());
 
             ArazzoSpecification arazzo = parseRoot(rootNode, rootParseResult, path);
             result.setArazzo(arazzo);
@@ -184,25 +164,13 @@ public class ArazzoDeserializer {
             // components (https://spec.openapis.org/arazzo/latest.html#components-object)
             ObjectNode componentsObj = getObject("components", node, false, location, parseResult);
             if (Objects.nonNull(componentsObj)) {
-                this.components = getComponents(componentsObj, "components", parseResult);
+                Components components = getComponents(componentsObj, "components", parseResult);
                 arazzo.setComponents(components);
-//                if(parseResult.validateInternalRefs) {
-//                    /* TODO currently only capable of validating if ref is to root schema withing #/components/schemas
-//                     * need to evaluate json pointer instead to also allow validation of nested schemas
-//                     * e.g. #/components/schemas/foo/properties/bar
-//                     */
-//                    for (String schema : localSchemaRefs.keySet()) {
-//                        if (components.getSchemas() == null){
-//                            parseResult.missing(localSchemaRefs.get(schema), schema);
-//                        } else if (components.getSchemas().get(schema) == null) {
-//                            parseResult.invalidType(localSchemaRefs.get(schema), schema, "schema", rootNode);
-//                        }
-//                    }
-//                }
             }
 
+            // extensions
             Map<String, Object> extensions = getExtensions(node);
-            if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+            if (!extensions.isEmpty()) {
                 arazzo.setExtensions(extensions);
             }
 
@@ -251,7 +219,7 @@ public class ArazzoDeserializer {
         }
 
         Map<String, Object> extensions = getExtensions(rootNode);
-        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+        if (!extensions.isEmpty()) {
             components.setExtensions(extensions);
         }
 
@@ -974,6 +942,14 @@ public class ArazzoDeserializer {
             reusableObject.setValue(value);
         }
 
+        Set<String> keys = getKeys(node);
+        Map<String, Set<String>> specKeys = KEYS.get("arazzo10");
+        for (String key : keys) {
+            if (!specKeys.get("REUSABLE_OBJECT_KEYS").contains(key) && !key.startsWith("x-")) {
+                parseResult.extra(location, key, node.get(key));
+            }
+            validateReservedKeywords(specKeys, key, location, parseResult);
+        }
         return reusableObject;
     }
 
@@ -1184,7 +1160,7 @@ public class ArazzoDeserializer {
         }
 
         Map<String, Object> extensions = getExtensions(node);
-        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+        if (!extensions.isEmpty()) {
             sourceDescription.setExtensions(extensions);
         }
 
@@ -1278,7 +1254,7 @@ public class ArazzoDeserializer {
         }
 
         Map<String, Object> extensions = getExtensions(node);
-        if (Objects.nonNull(extensions) && !extensions.isEmpty()) {
+        if (!extensions.isEmpty()) {
             info.setExtensions(extensions);
         }
 
@@ -1398,7 +1374,7 @@ public class ArazzoDeserializer {
                              final boolean noInvalidError) {
         String value = null;
         JsonNode v = node.get(key);
-        if (Objects.isNull(node) || Objects.isNull(v)) {
+        if (Objects.isNull(v)) {
             if (required) {
                 parseResult.missing(location, key);
                 parseResult.invalid();
@@ -1415,33 +1391,6 @@ public class ArazzoDeserializer {
             }
         }
         return value;
-    }
-
-    public String inferTypeFromArray(ArrayNode an) {
-        if (an.size() == 0) {
-            return "string";
-        }
-        String type = null;
-        for (int i = 0; i < an.size(); i++) {
-            JsonNode element = an.get(0);
-            if (element.isBoolean()) {
-                if (type == null) {
-                    type = "boolean";
-                } else if (!"boolean".equals(type)) {
-                    type = "string";
-                }
-            } else if (element.isNumber()) {
-                if (type == null) {
-                    type = "number";
-                } else if (!"number".equals(type)) {
-                    type = "string";
-                }
-            } else {
-                type = "string";
-            }
-        }
-
-        return type;
     }
 
     public Boolean getBoolean(String key, ObjectNode node, boolean required, String location, ParseResult result) {
@@ -1566,39 +1515,20 @@ public class ArazzoDeserializer {
     }
 
     // TODO refactor into ArazzoParseResult; analog ArazzoValidationResult
+    @Data
+    @Builder
     public static class ParseResult {
-        private boolean valid = true;
-        private Map<Location, JsonNode> extra = new LinkedHashMap<>();
-        private Map<Location, JsonNode> unsupported = new LinkedHashMap<>();
-        private Map<Location, String> invalidType = new LinkedHashMap<>();
-        private List<Location> missing = new ArrayList<>();
-        private List<Location> warnings = new ArrayList<>();
-        private List<Location> unique = new ArrayList<>();
-        private List<Location> uniqueTags = new ArrayList<>();
-        private boolean allowEmptyStrings = true;
-        private List<Location> reserved = new ArrayList<>();
-        private boolean validateInternalRefs;
-        private boolean oaiAuthor = false;
 
-        public ParseResult() {
-        }
-
-        public boolean isAllowEmptyStrings() {
-            return this.allowEmptyStrings;
-        }
-
-        public void setAllowEmptyStrings(boolean allowEmptyStrings) {
-            this.allowEmptyStrings = allowEmptyStrings;
-        }
-
-        public ParseResult allowEmptyStrings(boolean allowEmptyStrings) {
-            this.allowEmptyStrings = allowEmptyStrings;
-            return this;
-        }
-
-        public void unsupported(String location, String key, JsonNode value) {
-            unsupported.put(new Location(location, key), value);
-        }
+        private boolean invalid;
+        private boolean mustValidate;
+        private boolean allowEmptyStrings;
+        private boolean oaiAuthor;
+        private final Map<Location, String> invalidType = new LinkedHashMap<>();
+        private final List<Location> reserved = new ArrayList<>();
+        private final Map<Location, JsonNode> extra = new LinkedHashMap<>();
+        private final List<Location> missing = new ArrayList<>();
+        private final List<Location> warnings = new ArrayList<>();
+        private final List<Location> unique = new ArrayList<>();
 
         public void reserved(String location, String key) {
             reserved.add(new Location(location, key));
@@ -1620,33 +1550,12 @@ public class ArazzoDeserializer {
             unique.add(new Location(location, key));
         }
 
-        public void uniqueTags(String location, String key) {
-            uniqueTags.add(new Location(location, key));
-        }
-
         public void invalidType(String location, String key, String expectedType, JsonNode value) {
             invalidType.put(new Location(location, key), expectedType);
         }
 
         public void invalid() {
-            this.valid = false;
-        }
-
-        public boolean isValid() {
-            return this.valid;
-        }
-
-        public boolean isOaiAuthor() {
-            return this.oaiAuthor;
-        }
-
-        public void setOaiAuthor(boolean oaiAuthor) {
-            this.oaiAuthor = oaiAuthor;
-        }
-
-        public ParseResult oaiAuthor(boolean oaiAuthor) {
-            this.oaiAuthor = oaiAuthor;
-            return this;
+            this.invalid = true;
         }
 
         public List<String> getMessages() {
@@ -1671,17 +1580,7 @@ public class ArazzoDeserializer {
                 String message = location + l.key;
                 messages.add(message);
             }
-            for (Location l : unsupported.keySet()) {
-                String location = l.location.equals("") ? "" : l.location + ".";
-                String message = "attribute " + location + l.key + " is unsupported";
-                messages.add(message);
-            }
             for (Location l : unique) {
-                String location = l.location.equals("") ? "" : l.location + ".";
-                String message = "attribute " + location + l.key + " is repeated";
-                messages.add(message);
-            }
-            for (Location l : uniqueTags) {
                 String location = l.location.equals("") ? "" : l.location + ".";
                 String message = "attribute " + location + l.key + " is repeated";
                 messages.add(message);
@@ -1694,50 +1593,34 @@ public class ArazzoDeserializer {
             return messages;
         }
 
-        public void setValidateInternalRefs(boolean validateInternalRefs) {
-            this.validateInternalRefs = validateInternalRefs;
-        }
+        public record Location(String location, String key) {
 
-        public boolean isValidateInternalRefs() {
-            return validateInternalRefs;
-        }
-    }
-
-    protected static class Location {
-        private String location;
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof Location)) return false;
-
-            Location location1 = (Location) o;
-
-            if (location != null ? !location.equals(location1.location) : location1.location != null) return false;
-            return !(key != null ? !key.equals(location1.key) : location1.key != null);
-
-        }
-
-        @Override
-        public int hashCode() {
-            int result = location != null ? location.hashCode() : 0;
-            result = 31 * result + (key != null ? key.hashCode() : 0);
-            return result;
-        }
-
-        private String key;
-
-        public Location(String location, String key) {
-            this.location = location;
-            this.key = key;
+            public static ArazzoValidationResult.Location of(final String location, final String key) {
+                return new ArazzoValidationResult.Location(location, key);
+            }
         }
     }
 
-    public interface JsonSchemaParserExtension {
-        Schema getSchema(JsonNode node, String location, ParseResult result, Map<String, Object> rootMap, String basePath);
 
-        boolean resolveSchema(Schema schema, ResolverCache cache, ArazzoSpecification arazzo);
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public enum ReferenceValidator {
         inputs {

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import de.leidenheit.core.model.ArazzoSpecification;
 import io.swagger.util.ObjectMapperFactory;
+import io.swagger.v3.oas.models.OpenAPI;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.FileUtils;
 
@@ -30,6 +31,8 @@ public class ArazzoParser implements ArazzoParserExtension {
         JSON_MAPPER = ObjectMapperFactory.createJson();
         YAML_MAPPER = ObjectMapperFactory.createYaml();
     }
+
+//    private ArazzoValidatorRegistry validatorRegistry = new ArazzoValidatorRegistry();
 
     @Deprecated(since = "ArazzoParserExtension", forRemoval = true)
     public ArazzoSpecification parseYamlRaw(final File workflowSpecificationFile) throws IOException {
@@ -88,6 +91,11 @@ public class ArazzoParser implements ArazzoParserExtension {
             } else {
                 arazzoParseResult = parseJsonNode(location, rootNode);
             }
+            // TODO validate
+//            var arazzoValidationResult = validatorRegistry.validate(arazzoParseResult.getArazzo(), ArazzoValidationOptions.ofDefault());
+//            // validatorRegistry.validateAgainstOpenApi()
+//            arazzoParseResult.getMessages().addAll(arazzoValidationResult.getMessages());
+
             // TODO finalize implementation
 //            if (Objects.nonNull(arazzoParseResult.getArazzo())) {
 //                arazzoParseResult = resolve(arazzoParseResult, options, location);
