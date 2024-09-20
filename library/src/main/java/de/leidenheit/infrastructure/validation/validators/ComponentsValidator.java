@@ -21,7 +21,7 @@ public class ComponentsValidator implements Validator<Components> {
             final ArazzoValidationOptions validationOptions) {
         var result = ArazzoValidationResult.builder().build();
 
-        if (components.getParameters() != null) {
+        if (Objects.nonNull(components.getParameters())) {
             for (Map.Entry<String, Parameter> entry : components.getParameters().entrySet()) {
                 String name = entry.getKey();
                 Parameter parameter = entry.getValue();
@@ -35,7 +35,7 @@ public class ComponentsValidator implements Validator<Components> {
             }
         }
 
-        if (components.getSuccessActions() != null) {
+        if (Objects.nonNull(components.getSuccessActions())) {
             for (Map.Entry<String, SuccessAction> entry : components.getSuccessActions().entrySet()) {
                 String name = entry.getKey();
                 SuccessAction successAction = entry.getValue();
@@ -49,7 +49,7 @@ public class ComponentsValidator implements Validator<Components> {
             }
         }
 
-        if (components.getFailureActions() != null) {
+        if (Objects.nonNull(components.getFailureActions())) {
             for (Map.Entry<String, FailureAction> entry : components.getFailureActions().entrySet()) {
                 String name = entry.getKey();
                 FailureAction failureAction = entry.getValue();
