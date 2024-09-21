@@ -1,7 +1,6 @@
 package de.leidenheit.core.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.swagger.v3.oas.models.OpenAPI;
 import lombok.*;
 
 import java.util.List;
@@ -21,5 +20,4 @@ public class ArazzoSpecification {
     private List<Workflow> workflows;
     private Components components;
     private Map<String, Object> extensions;
-    private OpenAPI openAPI;
 }

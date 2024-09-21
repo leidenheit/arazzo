@@ -29,7 +29,7 @@ public class ArazzoWorkflowExecutor {
         System.out.printf("Executing workflow %s%n", workflow.getWorkflowId());
 
         // TODO rest assured
-        var serverUrl = arazzoSpecification.getOpenAPI().getServers().get(0).getUrl();
+        var serverUrl = arazzoSpecification.getSourceDescriptions().get(0).getReferencedOpenAPI().getServers().get(0).getUrl();
         serverUrl = serverUrl + ":8080";
 
         // TODO components
@@ -49,7 +49,7 @@ public class ArazzoWorkflowExecutor {
         // execute
         for (Workflow wf : arazzoSpecification.getWorkflows()) {
             for (Step step : wf.getSteps()) {
-                var pathOperationEntry = arazzoSpecification.getOpenAPI().getPaths().entrySet().stream()
+                var pathOperationEntry = arazzoSpecification.getSourceDescriptions().get(0).getReferencedOpenAPI().getPaths().entrySet().stream()
                         .filter(entry ->
                                 entry.getValue().readOperations().stream()
                                         .anyMatch(o -> o.getOperationId().equals(step.getOperationId())))

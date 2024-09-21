@@ -1,12 +1,16 @@
 package de.leidenheit.infrastructure.validation.validators;
 
 import com.google.common.base.Strings;
+import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Criterion;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
 
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -92,20 +96,28 @@ public class CriterionValidator implements Validator<Criterion> {
 
     private boolean validateRegex(final String condition) {
         try {
-            Pattern.compile(condition);
-            return true;
+            var compiled = Pattern.compile(condition);
+            return !Strings.isNullOrEmpty(compiled.pattern());
         } catch (PatternSyntaxException e) {
             return false;
         }
     }
 
     private boolean validateJsonPath(final String condition) {
-        // TODO use JSON library here to validate
-        return !condition.trim().isEmpty();
+        try {
+            var compiled = JsonPath.compile(condition);
+            return !Strings.isNullOrEmpty(compiled.getPath());
+        } catch (InvalidPathException e) {
+            return false;
+        }
     }
 
     private boolean validateXPath(final String condition) {
-        //TODO use XPATH library to validate
-        return !condition.trim().isEmpty();
+        try {
+            var compiled = XPathFactory.newDefaultInstance().newXPath().compile(condition);
+            return !Strings.isNullOrEmpty(compiled.toString());
+        } catch (XPathExpressionException e) {
+            return false;
+        }
     }
 }

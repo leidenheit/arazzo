@@ -49,7 +49,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
             arazzoSpecification = result.getArazzo();
-            arazzoSpecification.setOpenAPI(openAPI);
+            arazzoSpecification.getSourceDescriptions().get(0).setReferencedOpenAPI(openAPI);
 
             // TODO temp validation
             var validateOptions = ArazzoValidationOptions.ofDefault();

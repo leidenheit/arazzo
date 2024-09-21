@@ -2,6 +2,7 @@ package de.leidenheit.infrastructure.validation.validators;
 
 import com.google.common.base.Strings;
 import de.leidenheit.core.model.ArazzoSpecification;
+import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.core.model.Step;
 import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
@@ -146,17 +147,37 @@ public class StepValidator implements Validator<Step> {
     private boolean validateOperationId(final String operationId,
                                         final ArazzoSpecification arazzo,
                                         final ArazzoValidationOptions validationOptions) {
-        arazzo.getSourceDescriptions().forEach(sourceDescription -> {
-            // TODO load OAS and validate operationId
-        });
-        return true;
+        for (SourceDescription sourceDescription : arazzo.getSourceDescriptions()) {
+            if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
+                var refOas = sourceDescription.getReferencedOpenAPI();
+                var operationExists = refOas.getPaths().values().stream()
+                        .anyMatch(pathItem ->
+                                pathItem.readOperations().stream()
+                                        .anyMatch(operation -> operationId.equals(operation.getOperationId())));
+                if (operationExists) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean validateOperationPath(final String operationPath,
                                           final ArazzoSpecification arazzo,
                                           final ArazzoValidationOptions validationOptions) {
-        // TODO load OAS and validate operationPath
-        return true;
+        for (SourceDescription sourceDescription : arazzo.getSourceDescriptions()) {
+            if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
+                var refOas = sourceDescription.getReferencedOpenAPI();
+//                var operationExists = refOas.getPaths().keySet().stream()
+//                        .anyMatch(operationPath::contains);
+//                if (operationExists) {
+//                    return true;
+//                }
+                // TODO we must resolve the json pointer here (path and operation) in order to validate against a <String, PathItem>
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean validateWorkflowId(final String workflowId,

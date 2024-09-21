@@ -41,6 +41,12 @@ public class SourceDescriptionValidator implements Validator<SourceDescription> 
             result.addError(LOCATION, "'url' is mandatory");
         }
 
+        if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
+            if (Objects.isNull(sourceDescription.getReferencedOpenAPI())) result.addError(LOCATION, "expecting referenced OAS to be set at this point but was not");
+        } else if (SourceDescription.SourceDescriptionType.ARAZZO.equals(sourceDescription.getType())) {
+            if (Objects.isNull(sourceDescription.getReferencedArazzo())) result.addError(LOCATION, "expecting referenced Arazzo to be set at this point but was not");
+        }
+
         if (Objects.nonNull(sourceDescription.getExtensions()) && !sourceDescription.getExtensions().isEmpty()) {
             var extensionValidator = new ExtensionsValidator();
             result.merge(extensionValidator.validate(sourceDescription.getExtensions(), sourceDescription, arazzo, validationOptions));

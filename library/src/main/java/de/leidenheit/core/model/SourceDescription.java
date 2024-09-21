@@ -1,6 +1,7 @@
 package de.leidenheit.core.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import io.swagger.v3.oas.models.OpenAPI;
 import lombok.*;
 
 import java.util.Map;
@@ -16,6 +17,9 @@ public class SourceDescription {
     @Builder.Default
     private SourceDescriptionType type = SourceDescriptionType.OPENAPI;
     private Map<String, Object> extensions;
+
+    private OpenAPI referencedOpenAPI;
+    private ArazzoSpecification referencedArazzo;
 
     @Getter
     @AllArgsConstructor
