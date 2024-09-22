@@ -4,7 +4,6 @@ import de.leidenheit.core.model.ArazzoSpecification;
 
 public interface Validator<T> {
 
-    // TODO utilize OAS in validators
     <C> ArazzoValidationResult validate(
             final T partOfArazzo,
             final C context,

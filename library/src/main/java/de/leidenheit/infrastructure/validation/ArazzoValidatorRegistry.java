@@ -35,11 +35,6 @@ public class ArazzoValidatorRegistry {
         validators.add(validator);
     }
 
-    public ArazzoValidationResult validateAgainstOpenApi(final ArazzoSpecification arazzo, final OpenAPI openAPI) {
-        // TODO finalize implementation
-        return ArazzoValidationResult.builder().build();
-    }
-
     public ArazzoValidationResult validate(final ArazzoSpecification arazzo, final ArazzoValidationOptions options) {
         var result = ArazzoValidationResult.builder().build();
 
