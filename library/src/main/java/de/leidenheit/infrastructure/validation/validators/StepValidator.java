@@ -8,6 +8,7 @@ import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
+import de.leidenheit.infrastructure.validation.utils.JsonPointerOperationComparator;
 
 import java.util.Objects;
 
@@ -168,13 +169,10 @@ public class StepValidator implements Validator<Step> {
         for (SourceDescription sourceDescription : arazzo.getSourceDescriptions()) {
             if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
                 var refOas = sourceDescription.getReferencedOpenAPI();
-//                var operationExists = refOas.getPaths().keySet().stream()
-//                        .anyMatch(operationPath::contains);
-//                if (operationExists) {
-//                    return true;
-//                }
-                // TODO we must resolve the json pointer here (path and operation) in order to validate against a <String, PathItem>
-                return true;
+
+                return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
+                        operationPath, refOas.getPaths()
+                );
             }
         }
         return false;
