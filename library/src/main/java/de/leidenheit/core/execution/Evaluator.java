@@ -20,7 +20,7 @@ public class Evaluator {
     private final ArazzoExpressionResolver resolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    protected Evaluator(final ArazzoExpressionResolver resolver) {
+    public Evaluator(final ArazzoExpressionResolver resolver) {
         this.resolver = resolver;
     }
 
