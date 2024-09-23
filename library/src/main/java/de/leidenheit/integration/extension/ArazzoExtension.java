@@ -26,8 +26,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
-        var openApiPath = System.getProperty("openapi.file", "y");
-        var arazzoPath = System.getProperty("arazzo.file", "x");
+        var openApiPath = System.getenv("openapi.file");
+        var arazzoPath = System.getenv("arazzo.file");
 
         // parse and validate
         OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
@@ -81,7 +81,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
         // prepare executor
-        var arazzoInputs = System.getProperty("arazzo-inputs.file", "z");
+        var arazzoInputs = System.getenv("arazzo-inputs.file");
         var params = new ExecutorParams(arazzoInputs);
         ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, params);
         supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);

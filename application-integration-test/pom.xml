@@ -48,24 +48,13 @@
 
     <build>
         <plugins>
-            <!-- Maven Compiler Plugin für Java 17 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
-                <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
-                </configuration>
-            </plugin>
-
-            <!-- Failsafe Plugin für Integrationstests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>3.5.0</version>
                 <executions>
                     <execution>
+                        <id>integration-test</id>
                         <goals>
                             <goal>integration-test</goal>
                             <goal>verify</goal>
@@ -76,17 +65,16 @@
                             <testFailureIgnore>true</testFailureIgnore>
                             <trimStackTrace>false</trimStackTrace>
                             <systemPropertyVariables>
+                                <!-- mvn test -Dopenapi.file=custom/path/to/openapi.yaml -Darazzo.file=custom/path/to/arazzo.yaml -->
                                 <openapi.file>${project.basedir}/src/test/resources/openapi.yaml</openapi.file>
                                 <arazzo.file>${project.basedir}/src/test/resources/arazzo.yaml</arazzo.file>
-                                <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json
-                                </arazzo-inputs.file>
+                                <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json</arazzo-inputs.file>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Surefire Report Plugin für detaillierte HTML-Reports -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
@@ -100,32 +88,18 @@
                     </execution>
                 </executions>
             </plugin>
-
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-site-plugin</artifactId>-->
-<!--                <version>3.12.1</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <phase>verify</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>site</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
         </plugins>
     </build>
 
     <reporting>
         <plugins>
-            <!-- Failsafe Report für Integrationstests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-report-plugin</artifactId>
                 <version>3.5.0</version>
                 <reportSets>
                     <reportSet>
+                        <id>integration-tests</id>
                         <reports>
                             <report>failsafe-report-only</report>
                         </reports>
