@@ -24,6 +24,12 @@ paths:
       responses:
         "202":
           description: "That was a delicious cookie."
+          headers:
+            location:
+              description: "The location URI."
+              style: "simple"
+              schema:
+                type: "string"
           content:
             text/plain: {}
         "404":
