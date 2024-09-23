@@ -61,14 +61,12 @@
                         </goals>
                         <configuration>
                             <printSummary>true</printSummary>
-                            <encoding>UTF-8</encoding>
                             <testFailureIgnore>true</testFailureIgnore>
                             <trimStackTrace>false</trimStackTrace>
                             <systemPropertyVariables>
-                                <!-- mvn test -Dopenapi.file=custom/path/to/openapi.yaml -Darazzo.file=custom/path/to/arazzo.yaml -->
-                                <openapi.file>${project.basedir}/src/test/resources/openapi.yaml</openapi.file>
-                                <arazzo.file>${project.basedir}/src/test/resources/arazzo.yaml</arazzo.file>
-                                <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json</arazzo-inputs.file>
+                                <openapi.file>${openapi.file}</openapi.file>
+                                <arazzo.file>${arazzo.file}</arazzo.file>
+                                <arazzo-inputs.file>${arazzo-inputs.file}</arazzo-inputs.file>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>

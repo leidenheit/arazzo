@@ -21,8 +21,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 
     @Override
     public void beforeAll(final ExtensionContext context) {
-        var openApiPath = System.getenv("openapi.file");
-        var arazzoPath = System.getenv("arazzo.file");
+        var openApiPath = System.getProperty("openapi.file");
+        var arazzoPath = System.getProperty("arazzo.file");
 
         System.out.printf("oas=%s%narazzo=%s%n".formatted(openApiPath, arazzoPath));
 
@@ -90,7 +90,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 //        ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, null, params);
 //        supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
 
-        var arazzoInputs = System.getenv("arazzo-inputs.file");
+        var arazzoInputs = System.getProperty("arazzo-inputs.file");
         supportedParameterTypes.put(String.class, arazzoInputs);
     }
 
