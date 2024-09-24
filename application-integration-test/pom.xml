@@ -67,6 +67,9 @@
                                 -Darazzo.file=${arazzo.file}
                                 -Darazzo-inputs.file=${arazzo-inputs.file}
                             </argLine>
+                            <statelessTestsetReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5Xml30StatelessReporter">
+                                <usePhrasedTestCaseMethodName>true</usePhrasedTestCaseMethodName>
+                            </statelessTestsetReporter>
                         </configuration>
                     </execution>
                 </executions>
