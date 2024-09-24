@@ -12,10 +12,10 @@ sourceDescriptions:
     url: http://localhost:8080/openapi.yaml
     type: openapi
     x-bernd: "Bernd"
-  - name: bookApi
-    url: http://localhost:9090/openapi.yaml
-    type: openapi
-    x-hugo: "Hugo"
+#  - name: bookApi
+#    url: http://localhost:9090/openapi.yaml
+#    type: openapi
+#    x-hugo: "Hugo"
 workflows:
   - workflowId: retrieveCookieAndEatCookie
     summary: Retrieve cookie by an identifier and eat it
@@ -87,6 +87,8 @@ workflows:
           type: number
         cookieIdWhichDoesNotExist:
           type: number
+    dependsOn:
+      - retrieveCookieAndEatCookie
     steps:
       - stepId: retrieveNotExistingCookieStep
         description: 'This step demonstrates the retrieval of a non-existing cookie step {$sourceDescriptions.cookieApi.type}.'
