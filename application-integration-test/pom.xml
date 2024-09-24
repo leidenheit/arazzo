@@ -20,7 +20,6 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- mvn test -Dopenapi.file=custom/path/to/openapi.yaml -Darazzo.file=custom/path/to/arazzo.yaml -->
         <openapi.file>${project.basedir}/src/test/resources/openapi.yaml</openapi.file>
         <arazzo.file>${project.basedir}/src/test/resources/arazzo.yaml</arazzo.file>
         <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json</arazzo-inputs.file>
@@ -63,11 +62,11 @@
                             <printSummary>true</printSummary>
                             <testFailureIgnore>true</testFailureIgnore>
                             <trimStackTrace>false</trimStackTrace>
-                            <systemPropertyVariables>
-                                <openapi.file>${openapi.file}</openapi.file>
-                                <arazzo.file>${arazzo.file}</arazzo.file>
-                                <arazzo-inputs.file>${arazzo-inputs.file}</arazzo-inputs.file>
-                            </systemPropertyVariables>
+                            <argLine>
+                                -Dopenapi.file=${openapi.file}
+                                -Darazzo.file=${arazzo.file}
+                                -Darazzo-inputs.file=${arazzo-inputs.file}
+                            </argLine>
                         </configuration>
                     </execution>
                 </executions>
@@ -81,7 +80,7 @@
                     <execution>
                         <phase>verify</phase>
                         <goals>
-                            <goal>failsafe-report-only</goal> <!-- Wichtig für Failsafe-Reports -->
+                            <goal>failsafe-report-only</goal>
                         </goals>
                     </execution>
                 </executions>
