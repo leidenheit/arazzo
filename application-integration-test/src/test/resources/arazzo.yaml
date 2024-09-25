@@ -8,8 +8,12 @@ info:
   extensions:
     x-hugo: "Hugo"
 sourceDescriptions:
+#  - name: cookieApi
+#    url: http://localhost:8080/openapi.yaml
+#    type: openapi
+#    x-bernd: "Bernd"
   - name: cookieApi
-    url: http://localhost:8080/openapi.yaml
+    url: ./src/test/resources/openapi.yaml
     type: openapi
     x-bernd: "Bernd"
 #  - name: bookApi

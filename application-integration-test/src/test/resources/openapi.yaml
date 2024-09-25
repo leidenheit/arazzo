@@ -1,11 +1,13 @@
 ---
 openapi: "3.0.1"
 info:
-  title: "OpenAPI definition"
-  version: "v0"
+  title: "Cookie API"
+  description: "An API to handle cookies."
 servers:
-  - url: "http://localhost"
-    description: "Generated server url"
+  - url: "http://localhost:8080"
+    description: "Production"
+  - url: "http://localhost:8080"
+    description: "Develop"
 paths:
   /cookies/{id}/eat:
     post:
@@ -24,6 +26,12 @@ paths:
       responses:
         "202":
           description: "That was a delicious cookie."
+          headers:
+            location:
+              description: "The location URI."
+              style: "simple"
+              schema:
+                type: "string"
           content:
             text/plain: {}
         "404":

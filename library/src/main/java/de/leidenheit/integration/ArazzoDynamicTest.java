@@ -25,7 +25,7 @@ public class ArazzoDynamicTest {
         if (countOfSourceDescriptionOfTypeOAS == 0)
             throw new RuntimeException("Only supports source description of type 'openapi' yet");
         if (countOfSourceDescriptionOfTypeOAS > 1)
-            throw new RuntimeException("Multiple source descriptions of type 'openapi' is not supported yet");
+            throw new RuntimeException("Multiple source descriptions of type 'openapi' is not yet supported");
 
         // sort workflows
         var sortedWorkflows = sortWorkflowsByDependencies(arazzo);
@@ -36,17 +36,17 @@ public class ArazzoDynamicTest {
     }
 
     private DynamicTest createDynamicTestForWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsPath) {
-        return DynamicTest.dynamicTest("Test of Workflow %s".formatted(workflow.getWorkflowId()), () ->
-                executeWorkflow(arazzo, workflow, inputsPath));
+        return DynamicTest.dynamicTest("Workflow-Test '%s'".formatted(workflow.getWorkflowId()), () ->
+                executeWorkflow(arazzo, workflow, inputsPath, workflowOutputs));
     }
 
-    private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsPath) {
+    private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsPath, final Map<String, Map<String, Object>> outputs) {
         var executor = new ArazzoWorkflowExecutor();
-        var outputs = executor.execute(arazzo, workflow, inputsPath);
-        if (Objects.nonNull(outputs)) {
-            workflowOutputs.put(workflow.getWorkflowId(), outputs);
+        var currentOutputs = executor.execute(arazzo, workflow, inputsPath);
+        if (Objects.nonNull(currentOutputs)) {
+            workflowOutputs.put(workflow.getWorkflowId(), currentOutputs);
         }
-        System.out.printf("%n%n%n====================%n%s%n====================%n%n%n".formatted(workflowOutputs));
+        System.out.printf("%n%nOutputs after workflow '%s'%n====================%n%s%n====================%n%n%n".formatted(workflow.getWorkflowId(), workflowOutputs));
     }
 
     private List<Workflow> sortWorkflowsByDependencies(final ArazzoSpecification arazzo) {
@@ -74,11 +74,9 @@ public class ArazzoDynamicTest {
                 )
         );
 
-        AtomicInteger counter = new AtomicInteger();
         System.out.printf("==================%nWorkflow Execution Order: %n");
         sortedWorkflowList.forEach(workflow -> {
-            counter.getAndIncrement();
-            System.out.printf("[%d] Workflow '%s' which depends on '%s'%n".formatted(counter.get(), workflow.getWorkflowId(), workflow.getDependsOn()));
+            System.out.printf("-> Workflow '%s' which depends on '%s'%n".formatted(workflow.getWorkflowId(), workflow.getDependsOn()));
         });
         System.out.printf("==================%n");
 

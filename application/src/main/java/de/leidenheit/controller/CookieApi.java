@@ -1,14 +1,16 @@
 package de.leidenheit.controller;
 
 import de.leidenheit.model.CookieDto;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-
+import io.swagger.v3.oas.annotations.servers.Server;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,13 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 
+@OpenAPIDefinition(
+        info = @Info(
+                description = "An API to handle cookies.",
+                title = "Cookie API"),
+        servers = {
+                @Server(description = "Production", url = "http://localhost:8080"),
+                @Server(description = "Develop", url = "http://localhost:8080")})
 @RestController
 @RequestMapping("/cookies")
 public class CookieApi {

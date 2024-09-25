@@ -6,9 +6,8 @@ import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
+import de.leidenheit.infrastructure.validation.utils.FileUrlResolver;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Objects;
 
 public class SourceDescriptionValidator implements Validator<SourceDescription> {
@@ -29,13 +28,9 @@ public class SourceDescriptionValidator implements Validator<SourceDescription> 
         }
 
         if (!Strings.isNullOrEmpty(sourceDescription.getUrl())) {
-            try {
-                URI uri = new URI(sourceDescription.getUrl());
-                if (!uri.isAbsolute() && !uri.isOpaque()) {
-                    throw new URISyntaxException(sourceDescription.getUrl(), "unexpected format");
-                }
-            } catch (URISyntaxException e) {
-                result.addInvalidType(LOCATION, "'url' error: %s".formatted(e.getMessage()), "must be a valid URI reference as per RFC3986");
+            var validUrl = FileUrlResolver.isValidFileOrUrl(sourceDescription.getUrl());
+            if (!validUrl) {
+                result.addError(LOCATION, "'url' must be a valid URI reference as per RFC3986 but is not: %s".formatted(sourceDescription.getUrl()));
             }
         } else {
             result.addError(LOCATION, "'url' is mandatory");
