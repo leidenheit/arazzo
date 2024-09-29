@@ -1,7 +1,6 @@
 package de.leidenheit.infrastructure.io;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.leidenheit.core.model.ArazzoSpecification;
@@ -30,9 +29,6 @@ public class ArazzoInputsReader {
 
     public static Map<String, Object> parseAndValidateInputs(final ArazzoSpecification arazzo, final String inputsFilePath, final JsonNode schemaNode) {
         try {
-
-            // TODO introduce grouping by workflowId key in order to validate multiple inputs to multiple schemas
-
             var inputs = readInputs(inputsFilePath);
             var mapper = getMapper(inputs.toString());
 
@@ -62,7 +58,7 @@ public class ArazzoInputsReader {
         return SchemaLoader.load(rawSchema);
     }
 
-    private static JsonNode readInputs(final String inputsFilePath) throws IOException, JsonMappingException {
+    private static JsonNode readInputs(final String inputsFilePath) throws IOException {
         var file = new File(inputsFilePath);
         if (file.exists()) {
             var contentAsString = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
@@ -77,4 +73,6 @@ public class ArazzoInputsReader {
         }
         return YAML_MAPPER;
     }
+
+    private ArazzoInputsReader() {}
 }

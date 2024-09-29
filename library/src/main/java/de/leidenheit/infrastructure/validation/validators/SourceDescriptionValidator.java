@@ -6,7 +6,7 @@ import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
-import de.leidenheit.infrastructure.validation.utils.FileUrlResolver;
+import de.leidenheit.infrastructure.utils.IOUtils;
 
 import java.util.Objects;
 
@@ -28,7 +28,7 @@ public class SourceDescriptionValidator implements Validator<SourceDescription> 
         }
 
         if (!Strings.isNullOrEmpty(sourceDescription.getUrl())) {
-            var validUrl = FileUrlResolver.isValidFileOrUrl(sourceDescription.getUrl());
+            var validUrl = IOUtils.isValidFileOrUrl(sourceDescription.getUrl());
             if (!validUrl) {
                 result.addError(LOCATION, "'url' must be a valid URI reference as per RFC3986 but is not: %s".formatted(sourceDescription.getUrl()));
             }

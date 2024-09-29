@@ -8,7 +8,7 @@ import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
-import de.leidenheit.infrastructure.validation.utils.JsonPointerOperationComparator;
+import de.leidenheit.infrastructure.utils.JsonPointerOperationComparator;
 
 import java.util.Objects;
 

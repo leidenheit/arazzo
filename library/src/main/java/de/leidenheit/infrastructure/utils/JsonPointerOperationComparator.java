@@ -1,4 +1,4 @@
-package de.leidenheit.infrastructure.validation.utils;
+package de.leidenheit.infrastructure.utils;
 
 import io.swagger.v3.oas.models.Paths;
 

@@ -1,4 +1,4 @@
-package de.leidenheit.core.execution.resolving;
+package de.leidenheit.infrastructure.resolving;
 
 import io.restassured.http.Headers;
 import io.restassured.response.Response;

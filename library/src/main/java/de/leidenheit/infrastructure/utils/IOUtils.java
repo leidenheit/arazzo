@@ -1,4 +1,4 @@
-package de.leidenheit.infrastructure.validation.utils;
+package de.leidenheit.infrastructure.utils;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class FileUrlResolver {
+public class IOUtils {
 
     public static boolean isValidFileOrUrl(final String relativeOrAbsolutePath) {
         try {
@@ -47,4 +47,6 @@ public class FileUrlResolver {
     private static String retrieveWorkingDir() {
         return System.getProperty("user.dir");
     }
+
+    private IOUtils() {};
 }

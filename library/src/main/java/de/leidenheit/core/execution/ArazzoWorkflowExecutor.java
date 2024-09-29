@@ -1,12 +1,12 @@
 package de.leidenheit.core.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
-import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
+import de.leidenheit.core.execution.context.RestAssuredContext;
 import de.leidenheit.core.model.*;
+import de.leidenheit.infrastructure.evaluation.Evaluator;
 import de.leidenheit.infrastructure.io.ArazzoInputsReader;
-import de.leidenheit.infrastructure.validation.utils.FileUrlResolver;
+import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
+import de.leidenheit.infrastructure.utils.IOUtils;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 
@@ -23,25 +23,27 @@ public class ArazzoWorkflowExecutor {
 
         var inputsSchema = workflow.getInputs();
         var inputs = ArazzoInputsReader.parseAndValidateInputs(arazzo, inputsFilePath, inputsSchema);
-        var om = new ObjectMapper();
-        var arazzoRootNode = om.convertValue(arazzo, JsonNode.class);
-        var resolver = ArazzoExpressionResolverV2.getInstance(arazzoRootNode, inputs);
+        var resolver = ArazzoExpressionResolver.getInstance(arazzo, inputs);
         System.out.printf("inputs: %s%n", inputs.toString());
 
-        // TODO rest assured
+        // TODO introduce a rest assured executor for source descriptions of type OAS
         var sourceDescriptionOAS = arazzo.getSourceDescriptions().stream()
                 .filter(sourceDescription -> SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Unexpected"));
+
         // TODO remove once validation is in place
-        if (!FileUrlResolver.isValidFileOrUrl(sourceDescriptionOAS.getUrl())) throw new RuntimeException("Unexpected");
+        if (!IOUtils.isValidFileOrUrl(sourceDescriptionOAS.getUrl())) throw new RuntimeException("Unexpected");
+
         var resultWorkflowOutputs = new HashMap<String, Object>();
+
         var oasServers = sourceDescriptionOAS.getReferencedOpenAPI().getServers();
         oasServers.forEach(oasServer -> {
             // TODO only add port if missing
             var serverUrl = oasServer.getUrl();
             if (!serverUrl.matches(".*:\\d{1,5}")) {
-                serverUrl = "%s:8080".formatted(oasServer.getUrl()); // TODO make fallback port configurable
+                // TODO make fallback port configurable
+                serverUrl = "%s:8080".formatted(oasServer.getUrl());
             }
 
             // execute
@@ -62,14 +64,14 @@ public class ArazzoWorkflowExecutor {
                         ));
 
                 Evaluator evaluator = new Evaluator(resolver);
-                Evaluator.EvaluatorParams evaluatorParams = Evaluator.EvaluatorParams.builder().build();
+                RestAssuredContext restAssuredContext = RestAssuredContext.builder().build();
 
                 var requestSpecification = RestAssured
                         .given()
                         .filter((requestSpec, responseSpec, ctx) -> {
-                            evaluatorParams.setLatestUrl(requestSpec.getBaseUri());
-                            evaluatorParams.setLatestHttpMethod(requestSpec.getMethod());
-                            evaluatorParams.setLatestRequest(requestSpec);
+                            restAssuredContext.setLatestUrl(requestSpec.getBaseUri());
+                            restAssuredContext.setLatestHttpMethod(requestSpec.getMethod());
+                            restAssuredContext.setLatestRequest(requestSpec);
 
                             return ctx.next(requestSpec, responseSpec);
                         })
@@ -86,13 +88,13 @@ public class ArazzoWorkflowExecutor {
                 }
 
                 // set latest $statusCode, $response
-                evaluatorParams.setLatestStatusCode(response.statusCode());
-                evaluatorParams.setLastestResponse(response);
+                restAssuredContext.setLatestStatusCode(response.statusCode());
+                restAssuredContext.setLastestResponse(response);
 
                 // verify successCriteria
                 if (Objects.nonNull(step.getSuccessCriteria())) {
                     boolean asExpected = step.getSuccessCriteria().stream()
-                            .allMatch(c -> evaluator.evalCriterion(c, evaluatorParams));
+                            .allMatch(c -> evaluator.evalCriterion(c, restAssuredContext));
                     if (asExpected) {
                         // TODO handle onSuccess
                         System.out.println("Successful SuccessCriteria");
@@ -107,7 +109,7 @@ public class ArazzoWorkflowExecutor {
                     step.getOutputs().entrySet().forEach(output -> {
                         System.out.println("step iteration");
                         if (output.getValue() instanceof TextNode textNode) {
-                            var resolvedOutput = resolver.resolveExpression(textNode.asText(), evaluatorParams);
+                            var resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
                             System.out.println(resolvedOutput);
                             var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
                             resolver.resolvedMap.put(key, resolvedOutput);

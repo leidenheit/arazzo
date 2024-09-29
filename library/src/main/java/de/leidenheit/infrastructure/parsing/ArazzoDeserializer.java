@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
 import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import lombok.Builder;
@@ -1599,55 +1598,5 @@ public class ArazzoDeserializer {
                 return new ArazzoValidationResult.Location(location, key);
             }
         }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    public enum ReferenceValidator {
-        inputs {
-            @Override
-            public boolean validateComponent(Components components, String reference) {
-                return components.getInputs().containsKey(reference);
-            }
-        },
-        parameters {
-            @Override
-            public boolean validateComponent(Components components, String reference) {
-                return components.getParameters().containsKey(reference);
-            }
-        },
-        failureActions {
-            @Override
-            public boolean validateComponent(Components components, String reference) {
-                return components.getFailureActions().containsKey(reference);
-            }
-        },
-        successActions {
-            @Override
-            public boolean validateComponent(Components components, String reference) {
-                return components.getSuccessActions().containsKey(reference);
-            }
-        };
-
-        public abstract boolean validateComponent(Components components, String reference);
     }
 }

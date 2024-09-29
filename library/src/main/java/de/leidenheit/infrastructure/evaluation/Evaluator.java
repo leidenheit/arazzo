@@ -1,16 +1,12 @@
-package de.leidenheit.core.execution;
+package de.leidenheit.infrastructure.evaluation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
-import de.leidenheit.core.execution.resolving.HttpResolverContext;
+import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 import de.leidenheit.core.model.Criterion;
-import io.restassured.response.Response;
-import io.restassured.specification.FilterableRequestSpecification;
-import lombok.Builder;
-import lombok.Data;
+import de.leidenheit.infrastructure.resolving.ResolverContext;
 
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -18,30 +14,30 @@ import java.util.regex.Pattern;
 
 public class Evaluator {
 
-    private final ArazzoExpressionResolverV2 resolver;
+    private final ArazzoExpressionResolver resolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public Evaluator(final ArazzoExpressionResolverV2 resolver) {
+    public Evaluator(final ArazzoExpressionResolver resolver) {
         this.resolver = resolver;
     }
 
     public boolean evalCriterion(
             final Criterion criterion,
-            final EvaluatorParams params) {
+            final ResolverContext resolverContext) {
         if (criterion.getType() != null) {
             return switch (criterion.getType()) {
-                case REGEX -> evaluateRegex(criterion, params);
-                case JSONPATH -> evaluateJsonPath(criterion, params);
-                case XPATH -> evaluateXPath(criterion, params);
-                case SIMPLE -> evaluateSimpleCondition(criterion, params);
+                case REGEX -> evaluateRegex(criterion, resolverContext);
+                case JSONPATH -> evaluateJsonPath(criterion, resolverContext);
+                case XPATH -> evaluateXPath(criterion, resolverContext);
+                case SIMPLE -> evaluateSimpleCondition(criterion, resolverContext);
             };
         } else {
-            return evaluateSimpleCondition(criterion, params);
+            return evaluateSimpleCondition(criterion, resolverContext);
         }
     }
 
-    private String resolveContext(final String context, final EvaluatorParams params) {
-        var resolved = resolver.resolveExpression(context, params);
+    private String resolveCriterionContext(final String criterionContext, final ResolverContext resolverContext) {
+        var resolved = resolver.resolveExpression(criterionContext, resolverContext);
         if (resolved instanceof String resolvedAsString) {
             return resolvedAsString;
         }
@@ -50,15 +46,15 @@ public class Evaluator {
 
     private boolean evaluateSimpleCondition(
             final Criterion criterion,
-            final EvaluatorParams params) {
+            final ResolverContext resolverContext) {
         // e.g. $statusCode == 200
-        return evaluateLogicalExpression(criterion.getCondition(), params);
+        return evaluateLogicalExpression(criterion.getCondition(), resolverContext);
     }
 
     private boolean evaluateRegex(
             final Criterion criterion,
-            final EvaluatorParams params) {
-        String contextValue = resolveContext(criterion.getContext(), params);
+            final ResolverContext resolverContext) {
+        String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
         // e.g. $response.body.fieldHugo -> ^FieldHugoValue$
         return contextValue.matches(criterion.getCondition());
@@ -66,9 +62,9 @@ public class Evaluator {
 
     private boolean evaluateJsonPath(
             final Criterion criterion,
-            final EvaluatorParams params) {
+            final ResolverContext resolverContext) {
         // Resolve the context value (e.g., response body)
-        String contextValue = resolveContext(criterion.getContext(), params);
+        String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) {
             throw new RuntimeException("Unexpected");
         }
@@ -107,7 +103,7 @@ public class Evaluator {
                             .condition(String.format("%s %s %s", nodeAtPointer.asText(), operator, expected))
                             .context(criterion.getContext())
                             .build();
-                    return evaluateSimpleCondition(resolvedCriterion, params);
+                    return evaluateSimpleCondition(resolvedCriterion, resolverContext);
                 } else {
                     throw new RuntimeException("Unexpected");
                 }
@@ -136,7 +132,7 @@ public class Evaluator {
                             .condition(String.format("%s %s %s", jsonNodeValue, operator, expected))
                             .context(criterion.getContext())
                             .build();
-                    return evaluateSimpleCondition(resolvedCriterion, params);
+                    return evaluateSimpleCondition(resolvedCriterion, resolverContext);
                 } else {
                     throw new RuntimeException("Unexpected");
                 }
@@ -148,13 +144,13 @@ public class Evaluator {
 
     private boolean evaluateXPath(
             final Criterion criterion,
-            final EvaluatorParams params) {
-        String contextValue = resolveContext(criterion.getContext(), params);
+            final ResolverContext resolverContext) {
+        String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
         return evaluateXPathExpression(contextValue, criterion.getCondition());
     }
 
-    private boolean evaluateLogicalExpression(final String condition, final EvaluatorParams params) {
+    private boolean evaluateLogicalExpression(final String condition, final ResolverContext resolverContext) {
         // split into left, right and operator
         String[] parts = condition.split("==|!=|<=|>=|<|>");
         if (parts.length != 2) {
@@ -165,8 +161,8 @@ public class Evaluator {
         String rightPart = parts[1].trim();
 
         // resolved left and right, e.g. $statusCode
-        Object leftValue = resolver.resolveExpression(leftPart, params);
-        Object rightValue = resolver.resolveExpression(rightPart, params);
+        Object leftValue = resolver.resolveExpression(leftPart, resolverContext);
+        Object rightValue = resolver.resolveExpression(rightPart, resolverContext);
 
         // determine operator
         if (condition.contains("==")) {
@@ -201,16 +197,5 @@ public class Evaluator {
     private boolean evaluateXPathExpression(final String contextValue, final String condition) {
         // TODO implementation
         throw new RuntimeException("not implemented yet");
-    }
-
-    @Data
-    @Builder
-    public static class EvaluatorParams implements HttpResolverContext {
-        private String latestUrl;
-        private String latestHttpMethod;
-        private int latestStatusCode;
-        private FilterableRequestSpecification latestRequest;
-        private Response lastestResponse;
-        private Objects latestMessage;
     }
 }

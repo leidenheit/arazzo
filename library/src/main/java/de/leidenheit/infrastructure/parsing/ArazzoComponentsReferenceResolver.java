@@ -1,6 +1,7 @@
 package de.leidenheit.infrastructure.parsing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import de.leidenheit.infrastructure.utils.ResolverUtils;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -32,7 +33,7 @@ public class ArazzoComponentsReferenceResolver {
     }
 
     private JsonNode resolveJsonPointer(final String jsonPointer) {
-        // Convert JSON-Pointer to the right format
+        // convert JSON-Pointer to the right format
         String pointer = jsonPointer.replace("#/components", "");
         JsonNode result = componentsNode.at(pointer);
         if (result.isMissingNode()) {
@@ -47,21 +48,6 @@ public class ArazzoComponentsReferenceResolver {
             throw new RuntimeException("Unexpected");
         }
         String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length);
-        return getNestedValue(componentsNode, String.join(".", targetFields));
-    }
-
-    private JsonNode getNestedValue(
-            JsonNode resolveNode,
-            String keyPath) {
-        String[] keys = keyPath.split("\\.");
-        JsonNode currentNode = resolveNode;
-        for (String key : keys) {
-            if (currentNode.has(key)) {
-                currentNode = currentNode.get(key);
-            } else {
-                return null;
-            }
-        }
-        return currentNode;
+        return ResolverUtils.getNestedValue(componentsNode, String.join(".", targetFields));
     }
 }

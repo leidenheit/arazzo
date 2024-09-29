@@ -1,4 +1,4 @@
-package de.leidenheit.infrastructure.validation.utils;
+package de.leidenheit.infrastructure.utils;
 
 public class JsonPointerUtils {
 
