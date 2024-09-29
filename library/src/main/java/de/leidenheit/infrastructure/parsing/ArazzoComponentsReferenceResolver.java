@@ -1,19 +1,29 @@
-package de.leidenheit.core.execution.resolving;
+package de.leidenheit.infrastructure.parsing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Arrays;
+import java.util.Objects;
 
-public class ArazzoComponentRefResolver extends ContextExpressionResolver {
+public class ArazzoComponentsReferenceResolver {
+
+    private static ArazzoComponentsReferenceResolver instance;
 
     private final JsonNode componentsNode;
 
-    public ArazzoComponentRefResolver(final JsonNode componentsNode) {
+    private ArazzoComponentsReferenceResolver(final JsonNode componentsNode) {
         this.componentsNode = componentsNode;
     }
 
+    public static synchronized ArazzoComponentsReferenceResolver getInstance(final JsonNode componentsNode) {
+        if (Objects.isNull(instance)) {
+            instance = new ArazzoComponentsReferenceResolver(componentsNode);
+        }
+        return instance;
+    }
+
     public JsonNode resolveComponent(final String reference) {
-        if (reference.startsWith("#/")) {
+        if (reference.startsWith("#/components")) {
             return resolveJsonPointer(reference);
         } else if (reference.startsWith("$components.")) {
             return resolveRuntimeExpression(reference);
@@ -38,5 +48,20 @@ public class ArazzoComponentRefResolver extends ContextExpressionResolver {
         }
         String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length);
         return getNestedValue(componentsNode, String.join(".", targetFields));
+    }
+
+    private JsonNode getNestedValue(
+            JsonNode resolveNode,
+            String keyPath) {
+        String[] keys = keyPath.split("\\.");
+        JsonNode currentNode = resolveNode;
+        for (String key : keys) {
+            if (currentNode.has(key)) {
+                currentNode = currentNode.get(key);
+            } else {
+                return null;
+            }
+        }
+        return currentNode;
     }
 }

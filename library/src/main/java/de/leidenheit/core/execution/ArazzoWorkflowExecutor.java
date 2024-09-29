@@ -3,14 +3,14 @@ package de.leidenheit.core.execution;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
-import de.leidenheit.core.execution.resolving.ArazzoComponentRefResolver;
-import de.leidenheit.core.execution.resolving.ArazzoExpressionResolver;
+import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
 import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.io.ArazzoInputsReader;
 import de.leidenheit.infrastructure.validation.utils.FileUrlResolver;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -21,6 +21,13 @@ public class ArazzoWorkflowExecutor {
     public Map<String, Object> execute(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsFilePath) {
         System.out.printf("Executing workflow %s%n", workflow.getWorkflowId());
 
+        var inputsSchema = workflow.getInputs();
+        var inputs = ArazzoInputsReader.parseAndValidateInputs(arazzo, inputsFilePath, inputsSchema);
+        var om = new ObjectMapper();
+        var arazzoRootNode = om.convertValue(arazzo, JsonNode.class);
+        var resolver = ArazzoExpressionResolverV2.getInstance(arazzoRootNode, inputs);
+        System.out.printf("inputs: %s%n", inputs.toString());
+
         // TODO rest assured
         var sourceDescriptionOAS = arazzo.getSourceDescriptions().stream()
                 .filter(sourceDescription -> SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType()))
@@ -28,6 +35,7 @@ public class ArazzoWorkflowExecutor {
                 .orElseThrow(() -> new RuntimeException("Unexpected"));
         // TODO remove once validation is in place
         if (!FileUrlResolver.isValidFileOrUrl(sourceDescriptionOAS.getUrl())) throw new RuntimeException("Unexpected");
+        var resultWorkflowOutputs = new HashMap<String, Object>();
         var oasServers = sourceDescriptionOAS.getReferencedOpenAPI().getServers();
         oasServers.forEach(oasServer -> {
             // TODO only add port if missing
@@ -35,20 +43,6 @@ public class ArazzoWorkflowExecutor {
             if (!serverUrl.matches(".*:\\d{1,5}")) {
                 serverUrl = "%s:8080".formatted(oasServer.getUrl()); // TODO make fallback port configurable
             }
-
-            // TODO components
-            var mapper = new ObjectMapper();
-            var node = mapper.convertValue(arazzo.getComponents(), JsonNode.class);
-            var componentsResolver = new ArazzoComponentRefResolver(node);
-
-            var inputSchema = workflow.getInputs();
-            if (inputSchema.has("$ref")) {
-                inputSchema = componentsResolver.resolveComponent(inputSchema.get("$ref").asText());
-            }
-            var inputs = ArazzoInputsReader.parseAndValidateInputs(inputsFilePath, inputSchema);
-            System.out.printf("inputs: %s%n", inputs.toString());
-
-            ArazzoExpressionResolver resolver = new ArazzoExpressionResolver(arazzo, inputs);
 
             // execute
             for (Step step : workflow.getSteps()) {
@@ -64,7 +58,7 @@ public class ArazzoWorkflowExecutor {
                 var pathParameterMap = step.getParameters().stream()
                         .collect(Collectors.toMap(
                                 Parameter::getName,
-                                parameter -> resolver.resolveExpression(parameter.getValue().toString())
+                                parameter -> resolver.resolveExpression(parameter.getValue().toString(), null)
                         ));
 
                 Evaluator evaluator = new Evaluator(resolver);
@@ -114,6 +108,7 @@ public class ArazzoWorkflowExecutor {
                         System.out.println("step iteration");
                         if (output.getValue() instanceof TextNode textNode) {
                             var resolvedOutput = resolver.resolveExpression(textNode.asText(), evaluatorParams);
+                            System.out.println(resolvedOutput);
                             var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
                             resolver.resolvedMap.put(key, resolvedOutput);
                         } else {
@@ -126,16 +121,11 @@ public class ArazzoWorkflowExecutor {
 
             // TODO resolve wf outputs
             if (Objects.nonNull(workflow.getOutputs())) {
-                workflow.getOutputs().entrySet().forEach(output -> {
-                    if (output.getValue() instanceof TextNode textNode) {
-                        var x = resolver.resolveString(textNode.asText());
-                        // TODO do something with that
-                        System.out.printf("wf output: %s%n", x);
-                        workflow.getOutputs().put(output.getKey(), x);
-                    } else if (output.getValue() instanceof String outputValueAsString) {
-                        // already resolved and placed in map; no need to do anything
-                    }
-                    else {
+                workflow.getOutputs().forEach((key, value) -> {
+                    if (value instanceof TextNode textNode) {
+                        var resolvedOutput = resolver.resolveString(textNode.asText());
+                        resultWorkflowOutputs.put(key, resolvedOutput);
+                    } else {
                         throw new RuntimeException("Unexpected");
                     }
                 });
@@ -143,6 +133,6 @@ public class ArazzoWorkflowExecutor {
             System.out.printf("wf end for oas-server '%s [%s]'%n", oasServer.getDescription(), serverUrl);
         });
 
-        return workflow.getOutputs();
+        return resultWorkflowOutputs;
     }
 }

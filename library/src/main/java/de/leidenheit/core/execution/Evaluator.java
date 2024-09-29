@@ -4,7 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import de.leidenheit.core.execution.resolving.ArazzoExpressionResolver;
+import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
+import de.leidenheit.core.execution.resolving.HttpResolverContext;
 import de.leidenheit.core.model.Criterion;
 import io.restassured.response.Response;
 import io.restassured.specification.FilterableRequestSpecification;
@@ -17,10 +18,10 @@ import java.util.regex.Pattern;
 
 public class Evaluator {
 
-    private final ArazzoExpressionResolver resolver;
+    private final ArazzoExpressionResolverV2 resolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public Evaluator(final ArazzoExpressionResolver resolver) {
+    public Evaluator(final ArazzoExpressionResolverV2 resolver) {
         this.resolver = resolver;
     }
 
@@ -204,11 +205,12 @@ public class Evaluator {
 
     @Data
     @Builder
-    public static class EvaluatorParams {
-        private int latestStatusCode;
+    public static class EvaluatorParams implements HttpResolverContext {
         private String latestUrl;
         private String latestHttpMethod;
-        private Response lastestResponse;
+        private int latestStatusCode;
         private FilterableRequestSpecification latestRequest;
+        private Response lastestResponse;
+        private Objects latestMessage;
     }
 }

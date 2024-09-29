@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.leidenheit.core.model.ArazzoSpecification;
+import de.leidenheit.infrastructure.parsing.ArazzoComponentsReferenceResolver;
 import io.swagger.util.ObjectMapperFactory;
 import org.apache.commons.io.FileUtils;
 import org.everit.json.schema.Schema;
@@ -26,7 +28,7 @@ public class ArazzoInputsReader {
         YAML_MAPPER = ObjectMapperFactory.createYaml();
     }
 
-    public static Map<String, Object> parseAndValidateInputs(final String inputsFilePath, final JsonNode schemaNode) {
+    public static Map<String, Object> parseAndValidateInputs(final ArazzoSpecification arazzo, final String inputsFilePath, final JsonNode schemaNode) {
         try {
 
             // TODO introduce grouping by workflowId key in order to validate multiple inputs to multiple schemas
@@ -37,7 +39,15 @@ public class ArazzoInputsReader {
             JSONObject jsonObject = new JSONObject(mapper.writeValueAsString(inputs));
 
             // validate against schema
-            Schema schema = loadSchema(schemaNode);
+            Schema schema;
+            if (schemaNode.has("$ref")) {
+                var componentsNode = mapper.convertValue(arazzo.getComponents(), JsonNode.class);
+                var resolver = ArazzoComponentsReferenceResolver.getInstance(componentsNode);
+                schema = loadSchema(resolver.resolveComponent(schemaNode.get("$ref").asText()));
+            } else {
+                schema = loadSchema(schemaNode);
+            }
+
             schema.validate(jsonObject);
 
             return mapper.convertValue(inputs, new TypeReference<>() {

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import de.leidenheit.core.execution.resolving.ArazzoComponentRefResolver;
+import de.leidenheit.core.execution.resolving.ArazzoExpressionResolverV2;
 import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import lombok.Builder;
@@ -864,8 +864,8 @@ public class ArazzoDeserializer {
                     // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
-                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
-                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(Objects.requireNonNull(reusableObject).getReference().toString());
                     if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode failureActionObj)) {
                         var failureAction = getFailureAction(failureActionObj, location, parseResult);
                         if (Objects.nonNull(failureAction)) {
@@ -900,8 +900,8 @@ public class ArazzoDeserializer {
                     // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
-                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
-                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(Objects.requireNonNull(reusableObject).getReference().toString());
                     if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode successActionObj)) {
                         var successAction = getSuccessAction(successActionObj, location, parseResult);
                         if (Objects.nonNull(successAction)) {
@@ -1084,8 +1084,8 @@ public class ArazzoDeserializer {
                     // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
-                    var resolver = new ArazzoComponentRefResolver(this.rootNode.get("components"));
-                    var resolved = resolver.resolveComponent(reusableObject.getReference().toString());
+                    var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));
+                    var resolved = resolver.resolveComponent(Objects.requireNonNull(reusableObject).getReference().toString());
                     if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode parameterObj)) {
                         var parameter = getParameter(parameterObj, location, parseResult);
                         if (Objects.nonNull(parameter)) {
