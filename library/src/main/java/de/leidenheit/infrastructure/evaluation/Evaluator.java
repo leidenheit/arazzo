@@ -4,10 +4,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 import de.leidenheit.core.model.Criterion;
+import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 import de.leidenheit.infrastructure.resolving.ResolverContext;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
+import java.io.StringReader;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -195,7 +202,14 @@ public class Evaluator {
     }
 
     private boolean evaluateXPathExpression(final String contextValue, final String condition) {
-        // TODO implementation
-        throw new RuntimeException("not implemented yet");
+        try {
+            Document document = DocumentBuilderFactory.newInstance()
+                    .newDocumentBuilder()
+                    .parse(new InputSource(new StringReader(contextValue)));
+            XPath xpath = XPathFactory.newInstance().newXPath();
+            return (boolean) xpath.evaluate(condition, document, XPathConstants.BOOLEAN);
+        } catch (Exception e) {
+            throw new RuntimeException("Error while evaluating XPath expression: " + e.getMessage(), e);
+        }
     }
 }

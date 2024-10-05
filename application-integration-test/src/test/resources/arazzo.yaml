@@ -51,6 +51,10 @@ workflows:
             condition: $.id == $inputs.cookieId
             type: jsonpath
             version: draft-goessner-dispatch-jsonpath-00
+          - context: "<root><id>4711</id><name>Chocolate</name></root>"
+            condition: '/root/id = 4711'
+            type: xpath
+            version: xpath-30
           - context: $statusCode
             condition: '^200$'
             type: regex
