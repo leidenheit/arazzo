@@ -5,10 +5,10 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.core.model.Step;
 import de.leidenheit.core.model.Workflow;
+import de.leidenheit.infrastructure.utils.JsonPointerOperationComparator;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import de.leidenheit.infrastructure.validation.Validator;
-import de.leidenheit.infrastructure.utils.JsonPointerOperationComparator;
 
 import java.util.Objects;
 
@@ -154,7 +154,7 @@ public class StepValidator implements Validator<Step> {
                 var operationExists = refOas.getPaths().values().stream()
                         .anyMatch(pathItem ->
                                 pathItem.readOperations().stream()
-                                        .anyMatch(operation -> operationId.equals(operation.getOperationId())));
+                                        .anyMatch(operation -> operationId.contains(operation.getOperationId())));
                 if (operationExists) {
                     return true;
                 }
@@ -169,7 +169,7 @@ public class StepValidator implements Validator<Step> {
         for (SourceDescription sourceDescription : arazzo.getSourceDescriptions()) {
             if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
                 var refOas = sourceDescription.getReferencedOpenAPI();
-
+                if (Objects.isNull(refOas)) throw new RuntimeException("Unexpected");
                 return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
                         operationPath, refOas.getPaths()
                 );
@@ -181,6 +181,12 @@ public class StepValidator implements Validator<Step> {
     private boolean validateWorkflowId(final String workflowId,
                                        final ArazzoSpecification arazzo,
                                        final ArazzoValidationOptions validationOptions) {
+        if (workflowId.startsWith("$sourceDescriptions.")) {
+            return arazzo.getSourceDescriptions().stream()
+                    .filter(s -> SourceDescription.SourceDescriptionType.ARAZZO.equals(s.getType()))
+                    .anyMatch(s -> s.getReferencedArazzo().getWorkflows().stream().anyMatch(wf -> workflowId.contains(wf.getWorkflowId())));
+        }
+
         return arazzo.getWorkflows().stream()
                 .anyMatch(wf -> wf.getWorkflowId().equals(workflowId));
     }

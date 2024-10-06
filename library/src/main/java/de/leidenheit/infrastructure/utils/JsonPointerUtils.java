@@ -1,7 +1,5 @@
 package de.leidenheit.infrastructure.utils;
 
-import java.util.Objects;
-
 public class JsonPointerUtils {
 
     private JsonPointerUtils() {}
@@ -27,7 +25,7 @@ public class JsonPointerUtils {
         return new String[]{path, operation};
     }
 
-    private static String unescapeJsonPointer(final String token) {
+    public static String unescapeJsonPointer(final String token) {
         return token.replace("~1", "/").replace("~0", "~");
     }
 }

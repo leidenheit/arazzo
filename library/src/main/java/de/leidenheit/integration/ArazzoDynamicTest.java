@@ -2,13 +2,11 @@ package de.leidenheit.integration;
 
 import de.leidenheit.core.execution.ArazzoWorkflowExecutor;
 import de.leidenheit.core.model.ArazzoSpecification;
-import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.core.model.Workflow;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 public class ArazzoDynamicTest {
@@ -17,16 +15,6 @@ public class ArazzoDynamicTest {
 
     @TestFactory
     public Stream<DynamicTest> generateWorkflowTests(final ArazzoSpecification arazzo, final String inputsPath) {
-        // TODO implement support for multiple OAS source descriptions and referencing arazzo specifications
-        var countOfSourceDescriptionOfTypeOAS = arazzo.getSourceDescriptions().stream()
-                .filter(sourceDescription ->
-                        SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType()))
-                .count();
-        if (countOfSourceDescriptionOfTypeOAS == 0)
-            throw new RuntimeException("Only supports source description of type 'openapi' yet");
-        if (countOfSourceDescriptionOfTypeOAS > 1)
-            throw new RuntimeException("Multiple source descriptions of type 'openapi' is not yet supported");
-
         // sort workflows
         var sortedWorkflows = sortWorkflowsByDependencies(arazzo);
 

@@ -769,7 +769,7 @@ public class ArazzoDeserializer {
         String workflowId = getString("workflowId", node, false, location, parseResult);
         if (parseResult.isAllowEmptyStrings() && Objects.nonNull(workflowId)
                 || !parseResult.isAllowEmptyStrings() && StringUtils.isNotBlank(workflowId)) {
-            step.setOperationPath(workflowId);
+            step.setWorkflowId(workflowId);
         }
 
         ArrayNode parameterArray = getArray("parameters", node, false, location, parseResult);

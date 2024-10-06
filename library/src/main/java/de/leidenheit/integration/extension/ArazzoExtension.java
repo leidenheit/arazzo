@@ -1,6 +1,7 @@
 package de.leidenheit.integration.extension;
 
 import de.leidenheit.core.model.ArazzoSpecification;
+import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.parsing.ArazzoParseOptions;
 import de.leidenheit.infrastructure.parsing.ArazzoParser;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
@@ -21,20 +22,14 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
 
     @Override
     public void beforeAll(final ExtensionContext context) {
-        var openApiPath = System.getProperty("openapi.file");
         var arazzoPath = System.getProperty("arazzo.file");
 
-        System.out.printf("oas=%s%narazzo=%s%n".formatted(openApiPath, arazzoPath));
+        System.out.printf("Properties: arazzo.file=%s%n".formatted(arazzoPath));
 
         // parse and validate
-        OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
         ArazzoParser arazzoParser = new ArazzoParser();
         ArazzoValidatorRegistry arazzoValidatorRegistry = new ArazzoValidatorRegistry();
         try {
-            ParseOptions oasParseOptions = new ParseOptions();
-            oasParseOptions.setResolveFully(true);
-            OpenAPI openAPI = oasParser.read(openApiPath, Collections.emptyList(), oasParseOptions);
-
             var options = ArazzoParseOptions.builder()
                     .oaiAuthor(false)
                     .allowEmptyStrings(false)
@@ -46,7 +41,22 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
                 throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
             }
             arazzoSpecification = result.getArazzo();
-            arazzoSpecification.getSourceDescriptions().get(0).setReferencedOpenAPI(openAPI);
+            // TODO initialize referenced source description content
+            arazzoSpecification.getSourceDescriptions().forEach(sourceDescription -> {
+               if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
+                   OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
+                   ParseOptions oasParseOptions = new ParseOptions();
+                   oasParseOptions.setResolveFully(true);
+                   OpenAPI refOAS = oasParser.read(sourceDescription.getUrl(), Collections.emptyList(), oasParseOptions);
+                   sourceDescription.setReferencedOpenAPI(refOAS);
+               } else if (SourceDescription.SourceDescriptionType.ARAZZO.equals(sourceDescription.getType())) {
+                   var refArazzo = arazzoParser.readLocation(sourceDescription.getUrl(), options);
+                    if (refArazzo.isInvalid()) throw new RuntimeException("Unexpected");
+                   sourceDescription.setReferencedArazzo(refArazzo.getArazzo());
+               } else {
+                   throw new RuntimeException("Unsupported");
+               }
+            });
 
             // TODO temp validation
             var validateOptions = ArazzoValidationOptions.ofDefault();

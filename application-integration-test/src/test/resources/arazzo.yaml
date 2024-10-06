@@ -8,18 +8,18 @@ info:
   extensions:
     x-hugo: "Hugo"
 sourceDescriptions:
-#  - name: cookieApi
-#    url: http://localhost:8080/openapi.yaml
-#    type: openapi
-#    x-bernd: "Bernd"
   - name: cookieApi
-    url: ./src/test/resources/openapi.yaml
+    url: http://localhost:8080/openapi.yaml
     type: openapi
     x-bernd: "Bernd"
-#  - name: bookApi
-#    url: http://localhost:9090/openapi.yaml
-#    type: openapi
-#    x-hugo: "Hugo"
+  - name: petStoreApi
+    url: ./src/test/resources/another-openapi.yaml
+    type: openapi
+    x-hugo: "Hugo"
+  - name: anotherArazzo
+    url: ./src/test/resources/another-arazzo.yaml
+    type: arazzo
+    x-holger: "Holger"
 workflows:
   - workflowId: retrieveCookieAndEatCookie
     summary: Retrieve cookie by an identifier and eat it
@@ -27,6 +27,19 @@ workflows:
     inputs:
       $ref: '#/components/inputs/cookieIds'
     steps:
+      - stepId: lookupNonExistingCookieFromOtherArazzo
+        description: Demonstration of lookup of a referenced arazzo.
+        workflowId: $sourceDescriptions.anotherArazzo.retrieveNonExistingCookie2
+      - stepId: callToAnotherOAS
+        description: Demonstration of calling referenced oas.
+        operationId: $sourceDescriptions.petStoreApi.getInventory
+        successCriteria:
+          # assertions to determine step was successful
+          - condition: $statusCode == 200
+          - context: $response.body
+            condition: $.status != null
+            type: jsonpath
+            version: draft-goessner-dispatch-jsonpath-00
       - stepId: retrieveCookieStep
         description: This step demonstrates the retrieval of a cookie step.
         operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
@@ -101,7 +114,7 @@ workflows:
       - stepId: retrieveNotExistingCookieStep
         description: 'This step demonstrates the retrieval of a non-existing cookie step {$sourceDescriptions.cookieApi.type}.'
         #operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
-        operationId: findCookie
+        operationId: $sourceDescriptions.cookieApi.findCookie
         parameters:
           # parameters to inject into the findCookie operation (parameter name must be resolvable at the referenced operation and the value is determined using {expression} syntax)
           - name: id

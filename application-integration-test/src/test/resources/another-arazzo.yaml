@@ -1,0 +1,70 @@
+arazzo: 1.0.0
+info:
+  title: A cookie eating workflow 2
+  summary: This Arazzo Description showcases the workflow for how to eat a cookie through a sequence of API calls
+  description: |
+    This Arazzo Description walks you through the workflow and steps of `searching` and `eating` an available cookie.
+  version: 0.0.1
+  extensions:
+    x-hugo: "Hugo"
+sourceDescriptions:
+  - name: cookieApi
+    url: ./src/test/resources/openapi.yaml
+    type: openapi
+    x-bernd: "Bernd"
+workflows:
+  - workflowId: retrieveNonExistingCookie2
+    summary: Fail due to cookie not found
+    description: This workflow lays out the steps to look for a non existing cookie.
+    inputs:
+      type: object
+      properties:
+        cookieId:
+          type: number
+        cookieIdWhichDoesNotExist:
+          type: number
+    steps:
+      - stepId: retrieveNotExistingCookieStep
+        description: 'HUGO TODO 2 This step demonstrates the retrieval of a non-existing cookie step {$sourceDescriptions.cookieApi.type}.'
+        #operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
+        operationId: findCookie
+        parameters:
+          # parameters to inject into the findCookie operation (parameter name must be resolvable at the referenced operation and the value is determined using {expression} syntax)
+          - name: id
+            in: path
+            value: $inputs.cookieIdWhichDoesNotExist
+        successCriteria:
+          # assertions to determine step was successful
+          - condition: $statusCode == 404
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      value: $inputs.cookieId
+    page:
+      name: page
+      in: path
+      value: $inputs.pagination.page
+    pageSize:
+      name: pageSize
+      in: path
+      value: $inputs.pagination.pageSize
+  inputs:
+    cookieIds:
+      type: object
+      properties:
+        cookieId:
+          type: number
+        cookieIdWhichDoesNotExist:
+          type: number
+    pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+  x-hugo-b: HugoB
