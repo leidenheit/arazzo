@@ -12,6 +12,7 @@ import de.leidenheit.infrastructure.validation.Validator;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.util.Objects;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -105,6 +106,30 @@ public class CriterionValidator implements Validator<Criterion> {
 
     private boolean validateJsonPath(final String condition) {
         try {
+            // FIXME
+            if (condition.startsWith("#/")) {
+                // Extract JSON pointer
+                Pattern pattern = Pattern.compile("#(?<ptr>/[^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
+                Matcher matcher = pattern.matcher(condition);
+
+                if (matcher.find()) {
+                    String ptr = matcher.group("ptr");         // JSON Pointer
+                    var compiled = JsonPath.compile(ptr);
+                    return !Strings.isNullOrEmpty(compiled.getPath());
+                }
+                throw new RuntimeException("Unexpected");
+            } else if (condition.startsWith("$.")) {
+                // Extract JSON path
+                Pattern pattern = Pattern.compile("\\$\\.(?<path>[^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
+                Matcher matcher = pattern.matcher(condition);
+
+                if (matcher.find()) {
+                    String path = matcher.group("path");         // JSON path
+                    var compiled = JsonPath.compile(path);
+                    return !Strings.isNullOrEmpty(compiled.getPath());
+                }
+                throw new RuntimeException("Unexpected");
+            }
             var compiled = JsonPath.compile(condition);
             return !Strings.isNullOrEmpty(compiled.getPath());
         } catch (InvalidPathException e) {

@@ -51,6 +51,10 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
             // TODO temp validation
             var validateOptions = ArazzoValidationOptions.ofDefault();
             var validationResult = arazzoValidatorRegistry.validate(arazzoSpecification, validateOptions);
+            if (validationResult.isInvalid()) {
+                System.out.printf("Arazzo validation failed : %n%s%n", validationResult.getMessages().toString());
+                throw new RuntimeException("Arazzo must be valid");
+            }
 
             supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
         } catch (Exception e) {

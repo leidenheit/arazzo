@@ -22,6 +22,7 @@ public class ArazzoValidationResult {
         if (otherResult.invalid) {
             setInvalid(true);
         }
+        this.errorList.addAll(otherResult.errorList);
         this.invalidTypeMap.putAll(otherResult.invalidTypeMap);
 //        this.missingList.addAll(otherResult.missingList);
         this.warningList.addAll(otherResult.warningList);

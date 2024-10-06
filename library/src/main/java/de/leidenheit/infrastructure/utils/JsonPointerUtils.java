@@ -1,5 +1,7 @@
 package de.leidenheit.infrastructure.utils;
 
+import java.util.Objects;
+
 public class JsonPointerUtils {
 
     private JsonPointerUtils() {}
