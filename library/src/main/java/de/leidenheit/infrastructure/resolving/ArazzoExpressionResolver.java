@@ -23,7 +23,7 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
     private final JsonNode componentsNode;
 
     // hold resolved values to easily reference them later
-    public final Map<String, Object> resolvedMap = new LinkedHashMap<>();
+    private final Map<String, Object> resolvedMap = new LinkedHashMap<>();
 
     private ArazzoExpressionResolver(final ArazzoSpecification arazzo, final Map<String, Object> inputs) {
         this.inputs = inputs;
@@ -104,6 +104,10 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
             result.append(resolveExpression(expression, null));
         }
         return result.toString();
+    }
+
+    public void addResolved(final String key, final Object resolved) {
+        this.resolvedMap.put(key, resolved);
     }
 
     private JsonNode resolveSourceDescription(

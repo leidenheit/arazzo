@@ -19,12 +19,12 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Evaluator {
+public class CriterionEvaluator {
 
     private final ArazzoExpressionResolver resolver;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public Evaluator(final ArazzoExpressionResolver resolver) {
+    public CriterionEvaluator(final ArazzoExpressionResolver resolver) {
         this.resolver = resolver;
     }
 

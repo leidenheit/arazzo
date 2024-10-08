@@ -1,8 +1,10 @@
 package de.leidenheit.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import de.leidenheit.core.execution.ArazzoWorkflowExecutor;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Workflow;
+import de.leidenheit.infrastructure.io.ArazzoInputsReader;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
@@ -11,7 +13,7 @@ import java.util.stream.Stream;
 
 public class ArazzoDynamicTest {
 
-    private final Map<String, Map<String, Object>> workflowOutputs = new LinkedHashMap<>();
+    private final Map<String, Map<String, Object>> outputsOfWorkflows = new LinkedHashMap<>();
 
     @TestFactory
     public Stream<DynamicTest> generateWorkflowTests(final ArazzoSpecification arazzo, final String inputsPath) {
@@ -24,17 +26,18 @@ public class ArazzoDynamicTest {
     }
 
     private DynamicTest createDynamicTestForWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsPath) {
-        return DynamicTest.dynamicTest("Workflow-Test '%s'".formatted(workflow.getWorkflowId()), () ->
-                executeWorkflow(arazzo, workflow, inputsPath, workflowOutputs));
+        var inputs = readInputs(arazzo, workflow.getInputs(), inputsPath);
+        return DynamicTest.dynamicTest("Workflow '%s'".formatted(workflow.getWorkflowId()), () ->
+                executeWorkflow(arazzo, workflow, inputs, outputsOfWorkflows));
     }
 
-    private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final String inputsPath, final Map<String, Map<String, Object>> outputs) {
+    private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final Map<String, Object> inputs, final Map<String, Map<String, Object>> outputs) {
         var executor = new ArazzoWorkflowExecutor();
-        var currentOutputs = executor.execute(arazzo, workflow, inputsPath);
+        var currentOutputs = executor.execute(arazzo, workflow, inputs);
         if (Objects.nonNull(currentOutputs)) {
-            workflowOutputs.put(workflow.getWorkflowId(), currentOutputs);
+            System.out.printf("Outputs of workflow '%s': %s%n", workflow.getWorkflowId(), currentOutputs);
+            outputsOfWorkflows.put(workflow.getWorkflowId(), currentOutputs);
         }
-        System.out.printf("%n%nOutputs after workflow '%s'%n====================%n%s%n====================%n%n%n".formatted(workflow.getWorkflowId(), workflowOutputs));
     }
 
     private List<Workflow> sortWorkflowsByDependencies(final ArazzoSpecification arazzo) {
@@ -62,12 +65,17 @@ public class ArazzoDynamicTest {
                 )
         );
 
-        System.out.printf("==================%nWorkflow Execution Order: %n");
-        sortedWorkflowList.forEach(workflow -> {
-            System.out.printf("-> Workflow '%s' which depends on '%s'%n".formatted(workflow.getWorkflowId(), workflow.getDependsOn()));
-        });
-        System.out.printf("==================%n");
-
+        System.out.println("Workflows has been sorted to execution order:");
+        sortedWorkflowList.forEach(workflow -> System.out.printf(">> '%s' depends on: '%s'%n",
+                workflow.getWorkflowId(), workflow.getDependsOn()));
         return sortedWorkflowList;
+    }
+
+    private Map<String, Object> readInputs(final ArazzoSpecification arazzo,
+                                           final JsonNode inputsSchemaNode,
+                                           final String inputsFilePath) {
+        var inputs = ArazzoInputsReader.parseAndValidateInputs(arazzo, inputsFilePath, inputsSchemaNode);
+        System.out.printf("Provided inputs for arazzo: %s%n", inputs.toString());
+        return inputs;
     }
 }
