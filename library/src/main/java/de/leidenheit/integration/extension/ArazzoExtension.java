@@ -1,110 +1,36 @@
 package de.leidenheit.integration.extension;
 
+import com.google.common.base.Strings;
+import de.leidenheit.core.execution.SourceDescriptionInitializer;
 import de.leidenheit.core.model.ArazzoSpecification;
-import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.infrastructure.parsing.ArazzoParseOptions;
 import de.leidenheit.infrastructure.parsing.ArazzoParser;
 import de.leidenheit.infrastructure.validation.ArazzoValidationOptions;
 import de.leidenheit.infrastructure.validation.ArazzoValidatorRegistry;
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.parser.OpenAPIV3Parser;
-import io.swagger.v3.parser.core.models.ParseOptions;
 import org.junit.jupiter.api.extension.*;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, ParameterResolver {
 
+    private final String PROPERTY_ARAZZO_FILE = "arazzo.file";
+    private final String PROPERTY_ARAZZO_INPUTS_FILE = "arazzo-inputs.file";
     private final Map<Class<?>, Object> supportedParameterTypes = new HashMap<>();
-    private ArazzoSpecification arazzoSpecification;
 
     @Override
     public void beforeAll(final ExtensionContext context) {
-        var arazzoPath = System.getProperty("arazzo.file");
-
-        System.out.printf("Properties: arazzo.file=%s%n".formatted(arazzoPath));
-
-        // parse and validate
-        ArazzoParser arazzoParser = new ArazzoParser();
-        ArazzoValidatorRegistry arazzoValidatorRegistry = new ArazzoValidatorRegistry();
-        try {
-            var options = ArazzoParseOptions.builder()
-                    .oaiAuthor(false)
-                    .allowEmptyStrings(false)
-                    .mustValidate(true)
-                    .resolve(true)
-                    .build();
-            var result = arazzoParser.readLocation(arazzoPath, options);
-            if (result.isInvalid()) {
-                throw new RuntimeException("Parsing result invalid; result=" + result.getMessages());
-            }
-            arazzoSpecification = result.getArazzo();
-            // TODO initialize referenced source description content
-            arazzoSpecification.getSourceDescriptions().forEach(sourceDescription -> {
-               if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
-                   OpenAPIV3Parser oasParser = new OpenAPIV3Parser();
-                   ParseOptions oasParseOptions = new ParseOptions();
-                   oasParseOptions.setResolveFully(true);
-                   OpenAPI refOAS = oasParser.read(sourceDescription.getUrl(), Collections.emptyList(), oasParseOptions);
-                   sourceDescription.setReferencedOpenAPI(refOAS);
-               } else if (SourceDescription.SourceDescriptionType.ARAZZO.equals(sourceDescription.getType())) {
-                   var refArazzo = arazzoParser.readLocation(sourceDescription.getUrl(), options);
-                    if (refArazzo.isInvalid()) throw new RuntimeException("Unexpected");
-                   sourceDescription.setReferencedArazzo(refArazzo.getArazzo());
-               } else {
-                   throw new RuntimeException("Unsupported");
-               }
-            });
-
-            // TODO temp validation
-            var validateOptions = ArazzoValidationOptions.ofDefault();
-            var validationResult = arazzoValidatorRegistry.validate(arazzoSpecification, validateOptions);
-            if (validationResult.isInvalid()) {
-                System.out.printf("Arazzo validation failed : %n%s%n", validationResult.getMessages().toString());
-                throw new RuntimeException("Arazzo must be valid");
-            }
-
-            supportedParameterTypes.put(ArazzoSpecification.class, arazzoSpecification);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        var arazzoPath = readFromSystemProperties(PROPERTY_ARAZZO_FILE)
+                .orElseThrow(() -> new RuntimeException("Unexpected"));
+        var arazzo = loadArazzoFromPath(arazzoPath);
+        supportedParameterTypes.put(ArazzoSpecification.class, arazzo);
     }
 
     @Override
     public void beforeEach(final ExtensionContext context) {
-
-//        Method testMethod = context.getRequiredTestMethod();
-
-//        if (testMethod.isAnnotationPresent(WithWorkflowExecutor.class)) {
-//            // TODO conditional if explicit workflow execution annotation is not present
-//            if (!testMethod.isAnnotationPresent(Test.class)) {
-//                throw new RuntimeException("Annotation @WithWorkflowExecution can only be applied to @Test annotated methods");
-//            }
-
-//            WithWorkflowExecutor withWorkflowExecutor = testMethod.getAnnotation(WithWorkflowExecutor.class);
-//            var workflowId = withWorkflowExecutor.workflowId();
-//            var workflow = arazzoSpecification.getWorkflows().stream()
-//                    .filter(w -> workflowId.equals(w.getWorkflowId()))
-//                    .findFirst()
-//                    .orElseThrow(() -> new RuntimeException("Workflow not found"));
-
-//            // prepare executor
-//            var arazzoInputs = System.getenv("arazzo-inputs.file");
-//            var params = new ExecutorParams(arazzoInputs);
-//            ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, workflow, params);
-//            supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
-//            return;
-//        }
-
-//        // prepare executor
-//
-//        var params = new ExecutorParams(arazzoInputs);
-//        ArazzoWorkflowExecutor arazzoWorkflowExecutor = new ArazzoWorkflowExecutor(arazzoSpecification, null, params);
-//        supportedParameterTypes.put(ArazzoWorkflowExecutor.class, arazzoWorkflowExecutor);
-
-        var arazzoInputs = System.getProperty("arazzo-inputs.file");
+        var arazzoInputs = readFromSystemProperties(PROPERTY_ARAZZO_INPUTS_FILE)
+                .orElseThrow(() -> new RuntimeException("Unexpected"));
         supportedParameterTypes.put(String.class, arazzoInputs);
     }
 
@@ -116,5 +42,34 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
     @Override
     public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) throws ParameterResolutionException {
         return supportedParameterTypes.get(parameterContext.getParameter().getType());
+    }
+
+    private Optional<String> readFromSystemProperties(final String property) {
+        var propertyValue = System.getProperty(property);
+        if (Strings.isNullOrEmpty(propertyValue)) return Optional.empty();
+
+        System.out.printf("Reading system property '%s': %s%n", property, propertyValue);
+        return Optional.of(propertyValue);
+    }
+
+    private ArazzoSpecification loadArazzoFromPath(final String pathOfArazzo) {
+        ArazzoParser parser = new ArazzoParser();
+        ArazzoParseOptions parseOptions = ArazzoParseOptions.ofDefault();
+        var parseResult = parser.readLocation(pathOfArazzo, parseOptions);
+        if (parseResult.isInvalid()) {
+            throw new RuntimeException("Parsing result is invalid: %s".formatted(parseResult.getMessages()));
+        }
+
+        SourceDescriptionInitializer sourceDescriptionInitializer = new SourceDescriptionInitializer();
+        sourceDescriptionInitializer.initialize(parseResult.getArazzo());
+
+        ArazzoValidatorRegistry validatorRegistry = new ArazzoValidatorRegistry();
+        ArazzoValidationOptions validationOptions = ArazzoValidationOptions.ofDefault();
+        var validationResult = validatorRegistry.validate(parseResult.getArazzo(), validationOptions);
+        if (validationResult.isInvalid()) {
+            throw new RuntimeException("Validation result is invalid: %s".formatted(validationResult.getMessages()));
+        }
+
+        return validationResult.getArazzo();
     }
 }

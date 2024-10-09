@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 class ArazzoIT {
 
     @TestFactory
-    @DisplayName("shouldSuccessfullyExecuteArazzoWorkflows")
+    @DisplayName("ITArazzo")
     Stream<DynamicTest> testMyArazzo(final ArazzoSpecification arazzo,
                                       final String inputsFilePath) {
         ArazzoDynamicTest dynamicTest = new ArazzoDynamicTest();

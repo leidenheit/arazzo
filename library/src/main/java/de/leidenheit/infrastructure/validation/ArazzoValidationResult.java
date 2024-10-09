@@ -1,5 +1,6 @@
 package de.leidenheit.infrastructure.validation;
 
+import de.leidenheit.core.model.ArazzoSpecification;
 import lombok.Builder;
 import lombok.Data;
 
@@ -17,6 +18,8 @@ public class ArazzoValidationResult {
     private final List<Location> warningList = new ArrayList<>();
     private final List<Location> uniqueList = new ArrayList<>();
     private final List<Location> errorList = new ArrayList<>();
+
+    private ArazzoSpecification arazzo;
 
     public void merge(final ArazzoValidationResult otherResult) {
         if (otherResult.invalid) {

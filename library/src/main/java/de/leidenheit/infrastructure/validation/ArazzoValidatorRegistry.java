@@ -68,6 +68,8 @@ public class ArazzoValidatorRegistry {
             result.merge(extensionValidator.validate(arazzo.getExtensions(), null, arazzo, options));
         }
 
+        result.setArazzo(arazzo);
+
         return result;
     }
 

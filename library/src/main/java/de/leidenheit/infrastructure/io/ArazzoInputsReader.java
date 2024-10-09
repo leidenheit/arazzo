@@ -53,18 +53,19 @@ public class ArazzoInputsReader {
         }
     }
 
+    public static JsonNode readInputs(final String inputsSchemaFilePath) throws IOException {
+        var file = new File(inputsSchemaFilePath);
+        if (file.exists()) {
+            var contentAsString = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
+            var mapper = getMapper(contentAsString);
+            return mapper.readTree(contentAsString);
+        }
+        throw new RuntimeException("Unexpected");
+    }
+
     private static Schema loadSchema(final JsonNode schemaNode) {
         JSONObject rawSchema = new JSONObject(new JSONTokener(schemaNode.toString()));
         return SchemaLoader.load(rawSchema);
-    }
-
-    private static JsonNode readInputs(final String inputsFilePath) throws IOException {
-        var file = new File(inputsFilePath);
-        if (file.exists()) {
-            var contentAsString = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
-            return new ObjectMapper().readTree(contentAsString);
-        }
-        throw new RuntimeException("Unexpected");
     }
 
     private static ObjectMapper getMapper(final String data) {
