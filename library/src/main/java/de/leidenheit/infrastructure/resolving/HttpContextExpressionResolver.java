@@ -11,7 +11,7 @@ import java.util.Objects;
 public class HttpContextExpressionResolver implements HttpExpressionResolver {
 
     @Override
-    public Object resolveExpression(String expression, ResolverContext context) {
+    public Object resolveExpression(final String expression, final ResolverContext context) {
         if (Objects.isNull(context)) return expression;
         if (!(HttpResolverContext.class.isAssignableFrom(context.getClass()))) throw new RuntimeException("Unexpected");
 
@@ -57,28 +57,28 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
     }
 
     @Override
-    public String resolveHeader(String headerName, Headers headers) {
+    public String resolveHeader(final String headerName, final Headers headers) {
         var header = headers.getValue(headerName);
         if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
         return header;
     }
 
     @Override
-    public String resolvePathParam(String paramName, Map<String, String> pathParams) {
+    public String resolvePathParam(final String paramName, final Map<String, String> pathParams) {
         var pathParam = pathParams.get(paramName);
         if (Objects.isNull(pathParam)) throw new RuntimeException("Unexpected");
         return pathParam;
     }
 
     @Override
-    public String resolveRequestBody(RequestSpecification requestSpecification) {
+    public String resolveRequestBody(final RequestSpecification requestSpecification) {
         String body = ((FilterableRequestSpecification) requestSpecification).getBody();
         if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body;
     }
 
     @Override
-    public String resolveResponseBody(Response response) {
+    public String resolveResponseBody(final Response response) {
         var body = response.body();
         if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body.asString();

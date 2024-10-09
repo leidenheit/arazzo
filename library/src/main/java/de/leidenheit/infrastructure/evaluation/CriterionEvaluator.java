@@ -28,9 +28,7 @@ public class CriterionEvaluator {
         this.resolver = resolver;
     }
 
-    public boolean evalCriterion(
-            final Criterion criterion,
-            final ResolverContext resolverContext) {
+    public boolean evalCriterion(final Criterion criterion, final ResolverContext resolverContext) {
         if (criterion.getType() != null) {
             return switch (criterion.getType()) {
                 case REGEX -> evaluateRegex(criterion, resolverContext);
@@ -51,25 +49,19 @@ public class CriterionEvaluator {
         throw new RuntimeException("Unexpected");
     }
 
-    private boolean evaluateSimpleCondition(
-            final Criterion criterion,
-            final ResolverContext resolverContext) {
+    private boolean evaluateSimpleCondition(final Criterion criterion, final ResolverContext resolverContext) {
         // e.g. $statusCode == 200
         return evaluateLogicalExpression(criterion.getCondition(), resolverContext);
     }
 
-    private boolean evaluateRegex(
-            final Criterion criterion,
-            final ResolverContext resolverContext) {
+    private boolean evaluateRegex(final Criterion criterion, final ResolverContext resolverContext) {
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
         // e.g. $response.body.fieldHugo -> ^FieldHugoValue$
         return contextValue.matches(criterion.getCondition());
     }
 
-    private boolean evaluateJsonPath(
-            final Criterion criterion,
-            final ResolverContext resolverContext) {
+    private boolean evaluateJsonPath(final Criterion criterion, final ResolverContext resolverContext) {
         // Resolve the context value (e.g., response body)
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) {
@@ -97,12 +89,11 @@ public class CriterionEvaluator {
                     JsonNode nodeAtPointer = jsonNode.at(ptr);
                     if (Objects.isNull(nodeAtPointer)) throw new RuntimeException("Unexpected");
 
+                    System.out.printf("Criterion condition: ptr=%s; operator=%s; expected=%s%n", ptr, operator, expected);
+
                     // Resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
 
-                    System.out.println("Pointer: " + ptr);
-                    System.out.println("Operator: " + operator);
-                    System.out.println("Expected: " + expected);
 
                     // Evaluate condition based on the extracted node (simple condition)
                     var resolvedCriterion = Criterion.builder()
@@ -120,16 +111,13 @@ public class CriterionEvaluator {
                 Matcher matcher = pattern.matcher(criterion.getCondition());
 
                 if (matcher.find()) {
-                    String query = matcher.group("query");         // JSON Pointer
-                    String operator = matcher.group("operator");  // Operator
-                    String expected = matcher.group("expected");  // Erwarteter Wert
+                    String query = matcher.group("query");
+                    String operator = matcher.group("operator");
+                    String expected = matcher.group("expected");
+                    System.out.printf("Criterion condition: query=%s; operator=%s; expected=%s%n", query, operator, expected);
 
                     // Resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
-
-                    System.out.println("Query: " + query);
-                    System.out.println("Operator: " + operator);
-                    System.out.println("Expected: " + expected);
 
                     var jsonNodeValue = JsonPath.parse(jsonNode.toString()).read(query);
                     if (Objects.isNull(jsonNodeValue)) throw new RuntimeException("Unexpected");
@@ -149,9 +137,7 @@ public class CriterionEvaluator {
         }
     }
 
-    private boolean evaluateXPath(
-            final Criterion criterion,
-            final ResolverContext resolverContext) {
+    private boolean evaluateXPath(final Criterion criterion, final ResolverContext resolverContext) {
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
         return evaluateXPathExpression(contextValue, criterion.getCondition());

@@ -5,6 +5,7 @@ import de.leidenheit.core.execution.context.RestAssuredContext;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Parameter;
 import de.leidenheit.core.model.SourceDescription;
+import de.leidenheit.core.model.Criterion;
 import de.leidenheit.core.model.Step;
 import de.leidenheit.infrastructure.evaluation.CriterionEvaluator;
 import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
@@ -15,11 +16,18 @@ import io.restassured.specification.RequestSpecification;
 import io.swagger.v3.oas.models.PathItem;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class HttpStepExecutor implements StepExecutor {
+
+    private final StepExecutionCallback stepExecutionCallback;
+
+    public HttpStepExecutor(final StepExecutionCallback stepExecutionCallback) {
+        this.stepExecutionCallback = stepExecutionCallback;
+    }
 
     @Override
     public void executeStep(final ArazzoSpecification arazzo,
@@ -164,15 +172,31 @@ public class HttpStepExecutor implements StepExecutor {
                     .allMatch(c -> {
                         var isSatisfied = criterionEvaluator.evalCriterion(c, restAssuredContext);
                         if (!isSatisfied) {
-                            System.out.printf("Unsatisfied success criterion: %s%n", c);
+                            System.out.printf("Unsatisfied step success criterion condition: %s%n", c.getCondition());
                         }
                         return isSatisfied;
                     });
             if (!success) {
-                throw new RuntimeException("Failed SuccessCriteria");
-                // TODO do onFailureActions
+                System.out.println("Failed step success criteria");
+                if (Objects.nonNull(step.getOnFailure())) {
+                    step.getOnFailure().forEach(failureAction -> {
+                        if (shouldExecuteAction(failureAction.getCriteria(), criterionEvaluator, restAssuredContext)) {
+                            this.stepExecutionCallback.onStepFailure(failureAction);
+                        } else {
+                            System.out.printf("Unsatisfied step failure action criteria: %s(type=%s); ignored%n", failureAction.getName(), failureAction.getType());
+                        }
+                    });
+                }
             } else {
-                // TODO do onSuccessActions
+                if (Objects.nonNull(step.getOnSuccess())) {
+                    step.getOnSuccess().forEach(successAction -> {
+                        if (shouldExecuteAction(successAction.getCriteria(), criterionEvaluator, restAssuredContext)) {
+                            this.stepExecutionCallback.onStepSuccess(successAction);
+                        } else {
+                            System.out.printf("Unsatisfied step success action criteria: %s(type=%s); ignored%n", successAction.getName(), successAction.getType());
+                        }
+                    });
+                }
             }
         }
 
@@ -181,14 +205,22 @@ public class HttpStepExecutor implements StepExecutor {
             step.getOutputs().entrySet().forEach(output -> {
                 if (output.getValue() instanceof TextNode textNode) {
                     var resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
-                    System.out.println(resolvedOutput);
-                    var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
-                    resolver.addResolved(key, resolvedOutput);
+                    if (Objects.nonNull(resolvedOutput)) {
+                        var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
+                        resolver.addResolved(key, resolvedOutput);
+                    }
                 } else {
                     throw new RuntimeException("Unexpected");
                 }
             });
         }
+    }
+
+    private boolean shouldExecuteAction(final List<Criterion> actionCriteria,
+                                        final CriterionEvaluator criterionEvaluator,
+                                        final RestAssuredContext restAssuredContext) {
+        return actionCriteria.stream()
+                .allMatch(criterion -> criterionEvaluator.evalCriterion(criterion, restAssuredContext));
     }
 
     private String findServerUrl(final SourceDescription sourceDescription) {

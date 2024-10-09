@@ -5,16 +5,30 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.SourceDescription;
 import de.leidenheit.core.model.Step;
 import de.leidenheit.core.model.Workflow;
+import de.leidenheit.core.model.FailureAction;
+import de.leidenheit.core.model.SuccessAction;
 import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class ArazzoWorkflowExecutor {
+public class ArazzoWorkflowExecutor implements StepExecutionCallback {
 
     private final SourceDescriptionInitializer sourceDescriptionInitializer = new SourceDescriptionInitializer();
-    private final StepExecutor stepExecutor = new HttpStepExecutor();
+    private final StepExecutor stepExecutor = new HttpStepExecutor(this);
+
+    @Override
+    public void onStepSuccess(final SuccessAction successAction) {
+        System.out.printf("Callback for step success action: %s(type=%s)%n", successAction.getName(), successAction.getType());
+        // TODO
+    }
+
+    @Override
+    public void onStepFailure(final FailureAction failureAction) {
+        System.out.printf("Callback for step failure action: %s(type=%s)%n", failureAction.getName(), failureAction.getType());
+        // TODO
+    }
 
     public Map<String, Object> execute(final ArazzoSpecification arazzo, final Workflow workflow, final Map<String, Object> inputs) {
         sourceDescriptionInitializer.initialize(arazzo);

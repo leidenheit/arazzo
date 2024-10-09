@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.base.Strings;
 import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.validation.ArazzoValidationResult;
 import lombok.Builder;
@@ -1088,6 +1089,10 @@ public class ArazzoDeserializer {
                     if (Objects.nonNull(resolved) && (resolved instanceof ObjectNode parameterObj)) {
                         var parameter = getParameter(parameterObj, location, parseResult);
                         if (Objects.nonNull(parameter)) {
+                            // override value if applied to reusable object
+                            if (!Strings.isNullOrEmpty(reusableObject.getValue())) {
+                                parameter.setValue(reusableObject.getValue());
+                            }
                             parameters.add(parameter);
                         }
                     }
