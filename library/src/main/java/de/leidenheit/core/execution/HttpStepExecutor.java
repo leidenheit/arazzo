@@ -1,12 +1,9 @@
 package de.leidenheit.core.execution;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import de.leidenheit.core.execution.context.ExecutionResult;
 import de.leidenheit.core.execution.context.RestAssuredContext;
-import de.leidenheit.core.model.ArazzoSpecification;
-import de.leidenheit.core.model.Parameter;
-import de.leidenheit.core.model.SourceDescription;
-import de.leidenheit.core.model.Criterion;
-import de.leidenheit.core.model.Step;
+import de.leidenheit.core.model.*;
 import de.leidenheit.infrastructure.evaluation.CriterionEvaluator;
 import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 import de.leidenheit.infrastructure.utils.JsonPointerUtils;
@@ -15,24 +12,17 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import io.swagger.v3.oas.models.PathItem;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class HttpStepExecutor implements StepExecutor {
 
-    private final StepExecutionCallback stepExecutionCallback;
-
-    public HttpStepExecutor(final StepExecutionCallback stepExecutionCallback) {
-        this.stepExecutionCallback = stepExecutionCallback;
-    }
-
     @Override
-    public void executeStep(final ArazzoSpecification arazzo,
-                            final Step step,
-                            final ArazzoExpressionResolver resolver) {
+    public ExecutionResult executeStep(final ArazzoSpecification arazzo,
+                                       final Workflow workflow,
+                                       final Step step,
+                                       final ArazzoExpressionResolver resolver) {
         RestAssuredContext restAssuredContext = RestAssuredContext.builder().build();
         CriterionEvaluator criterionEvaluator = new CriterionEvaluator(resolver);
 
@@ -54,7 +44,7 @@ public class HttpStepExecutor implements StepExecutor {
         var requestSpecification = buildRestAssuredRequest(sourceDescription, step, restAssuredContext, resolver);
         var response = makeRequest(requestSpecification, pathOperationEntry);
 
-        handleResponseAndOutputs(step, resolver, criterionEvaluator, response, restAssuredContext);
+        return handleResponseAndOutputs(workflow, step, resolver, criterionEvaluator, response, restAssuredContext);
     }
 
     private SourceDescription findRelevantSourceDescriptionByOperationId(final ArazzoSpecification arazzo, final String operationId) {
@@ -117,7 +107,7 @@ public class HttpStepExecutor implements StepExecutor {
         return RestAssured
                 .given()
                 .filter((requestSpec, responseSpec, ctx) -> {
-                    restAssuredContext.setLatestUrl(requestSpec.getBaseUri());
+                    restAssuredContext.setLatestUrl(requestSpec.getURI());
                     restAssuredContext.setLatestHttpMethod(requestSpec.getMethod());
                     restAssuredContext.setLatestRequest(requestSpec);
 
@@ -157,11 +147,16 @@ public class HttpStepExecutor implements StepExecutor {
         }
     }
 
-    private void handleResponseAndOutputs(final Step step,
-                                          final ArazzoExpressionResolver resolver,
-                                          final CriterionEvaluator criterionEvaluator,
-                                          final Response response,
-                                          final RestAssuredContext restAssuredContext) {
+    // TODO refactor
+    private ExecutionResult handleResponseAndOutputs(final Workflow workflow,
+                                                     final Step step,
+                                                     final ArazzoExpressionResolver resolver,
+                                                     final CriterionEvaluator criterionEvaluator,
+                                                     final Response response,
+                                                     final RestAssuredContext restAssuredContext) {
+
+        var stepExecutionResultBuilder = ExecutionResult.builder();
+
         // Handle response
         restAssuredContext.setLastestResponse(response);
         restAssuredContext.setLatestStatusCode(response.statusCode());
@@ -172,30 +167,59 @@ public class HttpStepExecutor implements StepExecutor {
                     .allMatch(c -> {
                         var isSatisfied = criterionEvaluator.evalCriterion(c, restAssuredContext);
                         if (!isSatisfied) {
-                            System.out.printf("Unsatisfied step success criterion condition: %s%n", c.getCondition());
+                            System.out.printf("Unsatisfied success criterion condition '%s' in step '%s'('%s %s -> %s')%n",
+                                    c.getCondition(),
+                                    step.getStepId(),
+                                    restAssuredContext.getLatestHttpMethod(),
+                                    restAssuredContext.getLatestUrl(),
+                                    restAssuredContext.getLatestStatusCode());
                         }
                         return isSatisfied;
                     });
+
+            stepExecutionResultBuilder.successful(success);
+
             if (!success) {
-                System.out.println("Failed step success criteria");
+                System.out.printf("Step '%s' execution failed, delegating execution of step failure actions if any%n", step.getStepId());
                 if (Objects.nonNull(step.getOnFailure())) {
-                    step.getOnFailure().forEach(failureAction -> {
-                        if (shouldExecuteAction(failureAction.getCriteria(), criterionEvaluator, restAssuredContext)) {
-                            this.stepExecutionCallback.onStepFailure(failureAction);
-                        } else {
+                    var resultActionList = new ArrayList<>(step.getOnFailure());
+                    resultActionList.removeIf(failureAction -> {
+                        var actionMustBeIgnored = !shouldExecuteAction(failureAction.getCriteria(), criterionEvaluator, restAssuredContext);
+                        if (actionMustBeIgnored) {
                             System.out.printf("Unsatisfied step failure action criteria: %s(type=%s); ignored%n", failureAction.getName(), failureAction.getType());
                         }
+                        return actionMustBeIgnored;
                     });
+
+                    if (!resultActionList.isEmpty()) {
+                        var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
+                        if (Objects.nonNull(retryAfter)) {
+                            // apply provided retry-after header value to the action
+                            resultActionList.forEach(failureAction -> {
+                                if (FailureAction.FailureActionType.RETRY.equals(failureAction.getType())) {
+                                    System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", failureAction.getName(), retryAfter);
+                                    failureAction.setRetryAfter(new BigDecimal(retryAfter));
+                                }
+                            });
+                        }
+
+                        stepExecutionResultBuilder.failureActions(resultActionList);
+                    }
                 }
             } else {
+                System.out.printf("Step '%s' execution successful, delegating execution of step success actions if any%n", step.getStepId());
                 if (Objects.nonNull(step.getOnSuccess())) {
-                    step.getOnSuccess().forEach(successAction -> {
-                        if (shouldExecuteAction(successAction.getCriteria(), criterionEvaluator, restAssuredContext)) {
-                            this.stepExecutionCallback.onStepSuccess(successAction);
-                        } else {
+                    var resultActionList = new ArrayList<>(step.getOnSuccess());
+                    resultActionList.removeIf(successAction -> {
+                        var actionMustBeIgnored = !shouldExecuteAction(successAction.getCriteria(), criterionEvaluator, restAssuredContext);
+                        if (actionMustBeIgnored) {
                             System.out.printf("Unsatisfied step success action criteria: %s(type=%s); ignored%n", successAction.getName(), successAction.getType());
                         }
+                        return actionMustBeIgnored;
                     });
+                    if (!resultActionList.isEmpty()) {
+                        stepExecutionResultBuilder.successActions(resultActionList);
+                    }
                 }
             }
         }
@@ -214,6 +238,8 @@ public class HttpStepExecutor implements StepExecutor {
                 }
             });
         }
+
+        return stepExecutionResultBuilder.build();
     }
 
     private boolean shouldExecuteAction(final List<Criterion> actionCriteria,

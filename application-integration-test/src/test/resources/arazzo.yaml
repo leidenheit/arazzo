@@ -50,7 +50,7 @@ workflows:
 #            in: path
 #            value: '$inputs.cookieId'
           - reference: $components.parameters.id
-            value: '1'
+            value: '117'
 #          - reference: $components.parameters.pageSize
 #            value: '50'
         successCriteria:
@@ -161,15 +161,15 @@ components:
       stepId: eatCookieStep
       criteria:
         # assertions to determine if this action should be executed
-        - condition: $statusCode == 202
+        - condition: $statusCode == 200
   failureActions:
     retryFail:
       name: retryRetrieveCookieAndEatCookieFiveTimes
       type: retry
-      retryAfter: 1
+      retryAfter: 1 # seconds
       retryLimit: 5
       stepId: eatCookieStep
       criteria:
         # assertions to determine if this action should be executed
-        - condition: $statusCode == 500
+        - condition: $statusCode == 404
   x-hugo-b: HugoB

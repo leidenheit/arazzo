@@ -29,7 +29,7 @@ public class FailureActionValidator implements Validator<FailureAction> {
             if (failureAction.getWorkflowId() != null) countSet++;
             if (failureAction.getStepId() != null) countSet++;
 
-            if (countSet == 0) {
+            if (countSet == 0 && FailureAction.FailureActionType.GOTO.equals(failureAction.getType())) {
                 result.addError(LOCATION, "'goto' requires one of 'workflowId' or 'stepId'");
             } else if (countSet > 1) {
                 result.addError(LOCATION, "'goto' mutually excludes 'workflowId' and 'stepId'");
