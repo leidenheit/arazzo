@@ -179,46 +179,41 @@ public class HttpStepExecutor implements StepExecutor {
 
             stepExecutionResultBuilder.successful(success);
 
+            System.out.printf("Execution of step '%s' successful: '%s'%n", step.getStepId(), success);
             if (!success) {
-                System.out.printf("Step '%s' execution failed, delegating execution of step failure actions if any%n", step.getStepId());
                 if (Objects.nonNull(step.getOnFailure())) {
-                    var resultActionList = new ArrayList<>(step.getOnFailure());
-                    resultActionList.removeIf(failureAction -> {
-                        var actionMustBeIgnored = !shouldExecuteAction(failureAction.getCriteria(), criterionEvaluator, restAssuredContext);
-                        if (actionMustBeIgnored) {
-                            System.out.printf("Unsatisfied step failure action criteria: %s(type=%s); ignored%n", failureAction.getName(), failureAction.getType());
-                        }
-                        return actionMustBeIgnored;
-                    });
-
-                    if (!resultActionList.isEmpty()) {
-                        var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
-                        if (Objects.nonNull(retryAfter)) {
+                    // return the first failure action object that fulfills its criteria
+                    var fittingFailureAction = step.getOnFailure().stream()
+                            .filter(f -> shouldExecuteAction(f.getCriteria(), criterionEvaluator, restAssuredContext))
+                            .findFirst()
+                            .orElse(null);
+                    if (Objects.nonNull(fittingFailureAction)) {
+                        System.out.printf("Running failure action '%s' for step '%s'%n", fittingFailureAction.getName(), step.getStepId());
+                        if (FailureAction.FailureActionType.RETRY.equals(fittingFailureAction.getType())) {
                             // apply provided retry-after header value to the action
-                            resultActionList.forEach(failureAction -> {
-                                if (FailureAction.FailureActionType.RETRY.equals(failureAction.getType())) {
-                                    System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", failureAction.getName(), retryAfter);
-                                    failureAction.setRetryAfter(new BigDecimal(retryAfter));
-                                }
-                            });
+                            var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
+                            if (Objects.nonNull(retryAfter)) {
+                                System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", fittingFailureAction.getName(), retryAfter);
+                                fittingFailureAction.setRetryAfter(new BigDecimal(retryAfter));
+                            }
                         }
-
-                        stepExecutionResultBuilder.failureActions(resultActionList);
+                        stepExecutionResultBuilder.failureAction(fittingFailureAction);
+                    } else {
+                        System.out.printf("%n%n====%nWARN: No matching failure action criteria for step '%s'%n====%n%n", step.getStepId());
                     }
                 }
             } else {
-                System.out.printf("Step '%s' execution successful, delegating execution of step success actions if any%n", step.getStepId());
                 if (Objects.nonNull(step.getOnSuccess())) {
-                    var resultActionList = new ArrayList<>(step.getOnSuccess());
-                    resultActionList.removeIf(successAction -> {
-                        var actionMustBeIgnored = !shouldExecuteAction(successAction.getCriteria(), criterionEvaluator, restAssuredContext);
-                        if (actionMustBeIgnored) {
-                            System.out.printf("Unsatisfied step success action criteria: %s(type=%s); ignored%n", successAction.getName(), successAction.getType());
-                        }
-                        return actionMustBeIgnored;
-                    });
-                    if (!resultActionList.isEmpty()) {
-                        stepExecutionResultBuilder.successActions(resultActionList);
+                    // return the first success action object that fulfills its criteria
+                    var fittingSuccessAction = step.getOnSuccess().stream()
+                            .filter(f -> shouldExecuteAction(f.getCriteria(), criterionEvaluator, restAssuredContext))
+                            .findFirst()
+                            .orElse(null);
+                    if (Objects.nonNull(fittingSuccessAction)) {
+                        System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
+                        stepExecutionResultBuilder.successAction(fittingSuccessAction);
+                    } else {
+                        System.out.printf("%n%n====%nWARN: No matching success action criteria for step '%s'%n====%n%n", step.getStepId());
                     }
                 }
             }

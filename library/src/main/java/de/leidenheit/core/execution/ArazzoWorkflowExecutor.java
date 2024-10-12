@@ -6,8 +6,6 @@ import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class ArazzoWorkflowExecutor {
 
     private final SourceDescriptionInitializer sourceDescriptionInitializer = new SourceDescriptionInitializer();
@@ -56,8 +54,8 @@ public class ArazzoWorkflowExecutor {
                 if (Objects.nonNull(workflow.getSuccessActions())) {
                     actionList.addAll(workflow.getSuccessActions());
                 }
-                if (Objects.nonNull(executionResult.getSuccessActions())) {
-                    actionList.addAll(executionResult.getSuccessActions());
+                if (Objects.nonNull(executionResult.getSuccessAction())) {
+                    actionList.add(executionResult.getSuccessAction());
                 }
                 if (!actionList.isEmpty()) {
                     nextStep = handleSuccessActions(arazzo, actionList, currentStep, workflow, workflow.getSteps(), inputs, resolver);
@@ -67,15 +65,15 @@ public class ArazzoWorkflowExecutor {
                 if (Objects.nonNull(workflow.getFailureActions())) {
                     actionList.addAll(workflow.getFailureActions());
                 }
-                if (Objects.nonNull(executionResult.getFailureActions())) {
-                    actionList.addAll(executionResult.getFailureActions());
+                if (Objects.nonNull(executionResult.getFailureAction())) {
+                    actionList.add(executionResult.getFailureAction());
                 }
-                if (!actionList.isEmpty()) {
-                    nextStep = handleFailureActions(arazzo, actionList, currentStep, workflow, workflow.getSteps(), retryCounters, inputs, resolver);
-                } else {
-                    // no failure actions defined
-                    break;
-                }
+
+                // no failure actions defined
+                assert !actionList.isEmpty() : "Aborting workflow '%s' due to an unsuccessful step '%s' with an empty set of failure actions"
+                        .formatted(workflow.getWorkflowId(), currentStep.getStepId());
+
+                nextStep = handleFailureActions(arazzo, actionList, currentStep, workflow, workflow.getSteps(), retryCounters, inputs, resolver);
             }
 
             if (nextStep.isPresent()) {
@@ -180,9 +178,10 @@ public class ArazzoWorkflowExecutor {
                 case RETRY -> {
                     int retryCount = retryCounters.getOrDefault(currentStep.getStepId(), 0);
                     retryCount++;
-                    assertTrue(retryCount < failureAction.getRetryLimit(),
-                            "Reach retry limit for step failure action %s(type=%s)".formatted(
-                                    failureAction.getName(), failureAction.getType()));
+
+                    assert retryCount < failureAction.getRetryLimit() : "Reached retry limit for step failure action %s(type=%s)"
+                            .formatted(failureAction.getName(), failureAction.getType());
+
                     if (retryCount < failureAction.getRetryLimit()) {
                         try {
                             System.out.printf("Waiting %s seconds before retry%n", failureAction.getRetryAfter());
@@ -204,8 +203,29 @@ public class ArazzoWorkflowExecutor {
                             if (!executionResult.isSuccessful()) {
                                 System.out.printf("Referenced step '%s' in failure action was not successful%n", refStep.getStepId());
                                 // TODO handle failure actions also in retry context
+                                var refActionList = new ArrayList<FailureAction>();
+                                if (Objects.nonNull(workflow.getFailureActions())) {
+                                    refActionList.addAll(workflow.getFailureActions());
+                                }
+                                if (Objects.nonNull(executionResult.getFailureAction())) {
+                                    refActionList.add(executionResult.getFailureAction());
+                                }
+                                if (!refActionList.isEmpty()) {
+                                    return handleFailureActions(arazzo, refActionList, refStep, workflow, workflow.getSteps(), retryCounters, inputs, resolver);
+                                }
                             } else {
+                                System.out.printf("Referenced step '%s' in success action was successful%n", refStep.getStepId());
                                 // TODO handle success actions also in retry context
+                                var refActionList = new ArrayList<SuccessAction>();
+                                if (Objects.nonNull(workflow.getSuccessActions())) {
+                                    refActionList.addAll(workflow.getSuccessActions());
+                                }
+                                if (Objects.nonNull(executionResult.getSuccessAction())) {
+                                    refActionList.add(executionResult.getSuccessAction());
+                                }
+                                if (!refActionList.isEmpty()) {
+                                    return handleSuccessActions(arazzo, refActionList, refStep, workflow, workflow.getSteps(), inputs, resolver);
+                                }
                             }
                         } else if (Objects.nonNull(failureAction.getWorkflowId())) {
                             var workflowToTransferTo = findWorkflowByWorkflowId(arazzo, failureAction.getWorkflowId());

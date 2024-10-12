@@ -5,13 +5,11 @@ import de.leidenheit.core.model.SuccessAction;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.List;
-
 @Data
 @Builder
 public class ExecutionResult {
 
     final boolean successful;
-    final List<SuccessAction> successActions;
-    final List<FailureAction> failureActions;
+    final SuccessAction successAction;
+    final FailureAction failureAction;
 }
