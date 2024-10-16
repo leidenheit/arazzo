@@ -79,7 +79,7 @@ workflows:
             type: jsonpath
             version: draft-goessner-dispatch-jsonpath-00
         onFailure:
-          - name: retryRetrieveLookupPlacedOrderById
+          - name: retryRetrievePlacedOrderByIdSixTimes
             type: retry
             retryAfter: 5 # seconds
             retryLimit: 6
@@ -91,7 +91,7 @@ workflows:
         operationPath: '{$sourceDescriptions.petStoreApi.url}#/paths/~1store~1order~1{orderId}/delete'
         parameters:
           - reference: $components.parameters.orderId
-        #            value: '4711' # sad path
+#            value: '4711' # sad path
         successCriteria:
           # assertions to determine step was successful
           - condition: $statusCode == 200
