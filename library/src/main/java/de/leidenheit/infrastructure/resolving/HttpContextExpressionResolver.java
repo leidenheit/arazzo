@@ -1,5 +1,6 @@
 package de.leidenheit.infrastructure.resolving;
 
+import com.jayway.jsonpath.JsonPath;
 import io.restassured.http.Headers;
 import io.restassured.response.Response;
 import io.restassured.specification.FilterableRequestSpecification;
@@ -23,9 +24,18 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
                 var header = expression.substring("$response.header.".length());
                 return resolveHeader(header, httpContext.getLastestResponse().getHeaders());
             } else if (expression.startsWith("$response.body")) {
-                var responseBody = resolveResponseBody(httpContext.getLastestResponse());
+                var responseBody = resolveResponseBodyPayload(httpContext.getLastestResponse());
                 if (responseBody.isBlank()) {
                     return null;
+                }
+                if (expression.contains("$response.body.")) {
+                    var subPath = expression.substring("$response.body.".length());
+                    try {
+                        var r = JsonPath.read(responseBody, "$.%s".formatted(subPath));
+                        return r;
+                    } catch (Exception e) {
+                        throw new RuntimeException("Invalid JSON path: '%s'".formatted(expression));
+                    }
                 }
                 return responseBody;
             }
@@ -35,10 +45,11 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
                 var header = expression.substring("$request.header.".length());
                 return resolveHeader(header, httpContext.getLatestRequest().getHeaders());
             } else if (expression.startsWith("$request.body")) {
-                var requestBody = resolveRequestBody(httpContext.getLatestRequest());
+                var requestBody = resolveRequestBodyPayload(httpContext.getLatestRequest());
                 if (requestBody.isBlank()) {
                     return null;
                 }
+                // TODO consider handle request bodies in a deeply manner
                 return requestBody;
             } else if (expression.startsWith("$request.path")) {
                 var pathParam = expression.substring("$request.path.".length());
@@ -71,14 +82,14 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
     }
 
     @Override
-    public String resolveRequestBody(final RequestSpecification requestSpecification) {
+    public String resolveRequestBodyPayload(final RequestSpecification requestSpecification) {
         String body = ((FilterableRequestSpecification) requestSpecification).getBody();
         if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body;
     }
 
     @Override
-    public String resolveResponseBody(final Response response) {
+    public String resolveResponseBodyPayload(final Response response) {
         var body = response.body();
         if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body.asString();

@@ -167,13 +167,14 @@ public class StepValidator implements Validator<Step> {
                                           final ArazzoSpecification arazzo,
                                           final ArazzoValidationOptions validationOptions) {
         for (SourceDescription sourceDescription : arazzo.getSourceDescriptions()) {
-            if (SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) {
-                var refOas = sourceDescription.getReferencedOpenAPI();
-                if (Objects.isNull(refOas)) throw new RuntimeException("Unexpected");
-                return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
-                        operationPath, refOas.getPaths()
-                );
-            }
+            if (!operationPath.contains(sourceDescription.getName())) continue;
+            if (!SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) continue;
+
+            var refOas = sourceDescription.getReferencedOpenAPI();
+            if (Objects.isNull(refOas)) throw new RuntimeException("Unexpected");
+            return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
+                    operationPath, refOas.getPaths()
+            );
         }
         return false;
     }

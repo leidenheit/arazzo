@@ -74,6 +74,7 @@ public class ArazzoDynamicTest {
     private Map<String, Object> readInputs(final ArazzoSpecification arazzo,
                                            final JsonNode inputsSchemaNode,
                                            final String inputsFilePath) {
+        if (Objects.isNull(inputsSchemaNode)) return null;
         var inputs = ArazzoInputsReader.parseAndValidateInputs(arazzo, inputsFilePath, inputsSchemaNode);
         System.out.printf("Provided inputs for arazzo: %s%n", inputs.toString());
         return inputs;

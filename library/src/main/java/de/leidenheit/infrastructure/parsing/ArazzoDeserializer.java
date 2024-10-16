@@ -836,7 +836,7 @@ public class ArazzoDeserializer {
             for (String key : keys) {
                 var nodeValue = node.get(key);
                 if (!nodeValue.isTextual()) throw new RuntimeException("Unexpected");
-                outputs.put(key, nodeValue);
+                outputs.put(key, nodeValue.asText());
             }
         } else {
             parseResult.invalidType(location, "outputs", "object", node);
@@ -968,7 +968,7 @@ public class ArazzoDeserializer {
             requestBody.setContentType(contentType);
         }
 
-        JsonNode payloadNode = node.get("playload");
+        JsonNode payloadNode = node.get("payload");
         if (Objects.nonNull(payloadNode)) {
             requestBody.setPayload(getPlayload(payloadNode, location, parseResult));
         }
@@ -1048,7 +1048,7 @@ public class ArazzoDeserializer {
 
         JsonNode valueNode = node.get("value");
         if (Objects.nonNull(valueNode)) {
-            payloadReplacementObject.setValue(valueNode);
+            payloadReplacementObject.setValue(valueNode.asText());
         }
 
         Map<String, Object> extensions = getExtensions(node);

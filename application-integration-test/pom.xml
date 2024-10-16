@@ -20,7 +20,10 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <arazzo.file>${project.basedir}/src/test/resources/arazzo.yaml</arazzo.file>
+<!--        <arazzo.file>${project.basedir}/src/test/resources/arazzo.yaml</arazzo.file>-->
+<!--        <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json</arazzo-inputs.file>-->
+
+        <arazzo.file>${project.basedir}/src/test/resources/pet-store.arazzo.yaml</arazzo.file>
         <arazzo-inputs.file>${project.basedir}/src/test/resources/arazzo-inputs.json</arazzo-inputs.file>
     </properties>
 

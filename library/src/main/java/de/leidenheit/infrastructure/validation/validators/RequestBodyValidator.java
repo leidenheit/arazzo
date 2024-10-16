@@ -23,7 +23,7 @@ public class RequestBodyValidator implements Validator<RequestBody> {
         if (Strings.isNullOrEmpty(requestBody.getContentType())) result.addWarning(LOCATION, "'contentType' is not defined");
         if (Objects.isNull(requestBody.getPayload())) result.addError(LOCATION, "'payload' is mandatory");
 
-        if (!requestBody.getReplacements().isEmpty()) {
+        if (Objects.nonNull(requestBody.getReplacements())) {
             var payloadReplacementObjectValidator = new PayloadReplacementObjectValidator();
             requestBody.getReplacements().forEach(payloadReplacementObject ->
                     result.merge(payloadReplacementObjectValidator.validate(

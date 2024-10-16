@@ -1,7 +1,9 @@
 package de.leidenheit.infrastructure.utils;
 
+import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,12 +25,17 @@ public class JsonPointerOperationComparator {
             String extractedPath = extracted[0];
             String extractedOperation = extracted[1];
 
-            var stringPathItemEntry = paths.entrySet().stream().filter(e -> extractedPath.equals(e.getKey())).findFirst().orElseThrow(() -> new RuntimeException("Unexpected"));
-
-            var openApiPath = stringPathItemEntry.getKey();
-            var oasOperationEntry = stringPathItemEntry.getValue().readOperationsMap().entrySet().stream().findFirst().orElseThrow(() -> new RuntimeException("unexpected"));
-
-            return extractedPath.equals(openApiPath) && extractedOperation.equals(oasOperationEntry.getKey().toString().toLowerCase());
+            var res = paths.entrySet().stream()
+                    .filter(entry -> entry.getValue().readOperations().stream()
+                            .anyMatch(o -> {
+                                var pathItemMethod = PathItem.HttpMethod.valueOf(extractedOperation.toUpperCase());
+                                return extractedPath.equals(entry.getKey()) &&
+                                        Objects.nonNull(entry.getValue().readOperationsMap().getOrDefault(pathItemMethod, null));
+                            })
+                    )
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("No operation found for path " + extractedPath));
+            return Objects.nonNull(res);
         } catch (IllegalArgumentException e) {
             return false;
         }

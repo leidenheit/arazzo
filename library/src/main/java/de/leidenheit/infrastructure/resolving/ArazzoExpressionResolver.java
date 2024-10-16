@@ -93,15 +93,19 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
                 }
                 String expr = expression.substring(openIndex + 1, closeIndex);
                 Object resolved = resolveExpression(expr, null);
-                if (Objects.nonNull(resolved) && resolved instanceof TextNode textNode) {
-                    result.append(textNode.asText());
+                if (Objects.nonNull(resolved)) {
+                    if (resolved instanceof TextNode textNode) {
+                        result.append(textNode.asText());
+                    } else {
+                        result.append(resolved);
+                    }
                 } else {
                     throw new RuntimeException("Unexpected");
                 }
                 start = closeIndex + 1;
             }
         } else {
-            result.append(resolveExpression(expression, null));
+             result.append(resolveExpression(expression, null));
         }
         return result.toString();
     }

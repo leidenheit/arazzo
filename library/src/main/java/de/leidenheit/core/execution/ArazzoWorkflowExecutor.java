@@ -245,8 +245,13 @@ public class ArazzoWorkflowExecutor {
         var res = new HashMap<String, Object>();
         if (Objects.nonNull(workflow.getOutputs())) {
             workflow.getOutputs().forEach((key, value) -> {
+                Object resolvedOutput = null;
                 if (value instanceof TextNode textNode) {
-                    var resolvedOutput = resolver.resolveString(textNode.asText());
+                    resolvedOutput = resolver.resolveString(textNode.asText());
+                } else {
+                    resolvedOutput = resolver.resolveString(value.toString());
+                }
+                if (Objects.nonNull(resolvedOutput)) {
                     res.put(key, resolvedOutput);
                 } else {
                     throw new RuntimeException("Unexpected");

@@ -1,6 +1,8 @@
 package de.leidenheit.core.execution;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.google.common.base.Strings;
+import com.jayway.jsonpath.JsonPath;
 import de.leidenheit.core.execution.context.ExecutionResult;
 import de.leidenheit.core.execution.context.RestAssuredContext;
 import de.leidenheit.core.model.*;
@@ -8,12 +10,37 @@ import de.leidenheit.infrastructure.evaluation.CriterionEvaluator;
 import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
 import de.leidenheit.infrastructure.utils.JsonPointerUtils;
 import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.http.Method;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import io.swagger.v3.oas.models.PathItem;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class HttpStepExecutor implements StepExecutor {
@@ -27,22 +54,22 @@ public class HttpStepExecutor implements StepExecutor {
         CriterionEvaluator criterionEvaluator = new CriterionEvaluator(resolver);
 
         SourceDescription sourceDescription = null;
-        Map.Entry<String, PathItem> pathOperationEntry = null;
+        Map.Entry<String, Method> pathMethodEntry = null;
         if (Objects.nonNull(step.getOperationId())) {
             sourceDescription = findRelevantSourceDescriptionByOperationId(arazzo, step.getOperationId());
-            pathOperationEntry = findOperationByOperationId(sourceDescription, step.getOperationId());
+            pathMethodEntry = findOperationByOperationId(sourceDescription, step.getOperationId());
         } else if (Objects.nonNull(step.getOperationPath())) {
             sourceDescription = findRelevantSourceDescriptionByOperationPath(arazzo, step.getOperationPath());
-            pathOperationEntry = findOperationByOperationPath(sourceDescription, step.getOperationPath());
+            pathMethodEntry = findOperationByOperationPath(sourceDescription, step.getOperationPath());
         } else {
             throw new RuntimeException("Unexpected");
         }
 
         Objects.requireNonNull(sourceDescription);
-        Objects.requireNonNull(pathOperationEntry);
+        Objects.requireNonNull(pathMethodEntry);
 
         var requestSpecification = buildRestAssuredRequest(sourceDescription, step, restAssuredContext, resolver);
-        var response = makeRequest(requestSpecification, pathOperationEntry);
+        var response = makeRequest(requestSpecification, pathMethodEntry);
 
         return handleResponseAndOutputs(workflow, step, resolver, criterionEvaluator, response, restAssuredContext);
     }
@@ -69,42 +96,38 @@ public class HttpStepExecutor implements StepExecutor {
         return sourceDescription;
     }
 
-    private Map.Entry<String, PathItem> findOperationByOperationId(final SourceDescription sourceDescription, final String operationId) {
+    private Map.Entry<String, Method> findOperationByOperationId(final SourceDescription sourceDescription, final String operationId) {
         return sourceDescription.getReferencedOpenAPI().getPaths().entrySet().stream()
-                .filter(entry ->
-                        entry.getValue().readOperations().stream()
-                                .anyMatch(o -> operationId.contains(o.getOperationId())))
-                .findFirst()
+                .flatMap(pathsEntry -> pathsEntry.getValue().readOperationsMap().entrySet().stream()
+                        .filter(operationEntry -> operationId.contains(operationEntry.getValue().getOperationId()))
+                        .map(matchingOperationEntry -> Map.entry(
+                                pathsEntry.getKey(),
+                                Method.valueOf(matchingOperationEntry.getKey().name().toUpperCase()))
+                        )
+                ).findFirst()
                 .orElseThrow(() -> new RuntimeException("No operation found for id " + operationId));
     }
 
-    private Map.Entry<String, PathItem> findOperationByOperationPath(final SourceDescription sourceDescription,
-                                                                     final String operationPath) {
+    private Map.Entry<String, Method> findOperationByOperationPath(final SourceDescription sourceDescription,
+                                                                   final String operationPath) {
         var unescapedOperationPath = JsonPointerUtils.unescapeJsonPointer(operationPath);
-        return sourceDescription.getReferencedOpenAPI().getPaths().entrySet().stream()
-                .filter(entry ->
-                        entry.getValue().readOperations().stream()
-                                .anyMatch(o -> unescapedOperationPath.contains(entry.getKey())))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No operation found for path " + operationPath));
+        var pattern = Pattern.compile("paths/(?<oasPath>.+)/(?<httpMethod>[a-zA-Z]+)$");
+        var matcher = pattern.matcher(unescapedOperationPath);
+        if (matcher.find()) {
+            var oasOperationPath = matcher.group("oasPath");
+            var httpMethod = matcher.group("httpMethod");
+            if (Strings.isNullOrEmpty(oasOperationPath) || Strings.isNullOrEmpty(httpMethod)) throw new RuntimeException("Unexpected");
+            return Map.entry(oasOperationPath, Method.valueOf(httpMethod.toUpperCase()));
+        } else {
+            throw new RuntimeException("Invalid format: '%s'".formatted(unescapedOperationPath));
+        }
     }
 
     private RequestSpecification buildRestAssuredRequest(final SourceDescription sourceDescription,
                                                          final Step step,
                                                          final RestAssuredContext restAssuredContext,
                                                          final ArazzoExpressionResolver resolver) {
-        String serverUrl = findServerUrl(sourceDescription);
-
-        Map<String, Object> pathParameterMap = Collections.emptyMap();
-        if (Objects.nonNull(step.getParameters())) {
-            pathParameterMap = step.getParameters().stream()
-                    .collect(Collectors.toMap(
-                            Parameter::getName,
-                            parameter -> resolver.resolveExpression(parameter.getValue().toString(), null)
-                    ));
-        }
-
-        return RestAssured
+        var requestSpecification = RestAssured
                 .given()
                 .filter((requestSpec, responseSpec, ctx) -> {
                     restAssuredContext.setLatestUrl(requestSpec.getURI());
@@ -112,39 +135,97 @@ public class HttpStepExecutor implements StepExecutor {
                     restAssuredContext.setLatestRequest(requestSpec);
 
                     return ctx.next(requestSpec, responseSpec);
-                })
-                .baseUri(serverUrl)
-                .pathParams(pathParameterMap);
+                });
+
+        // apply uri
+        String serverUrl = findServerUrl(sourceDescription);
+        requestSpecification.baseUri(serverUrl);
+
+        // apply path params
+        Map<String, Object> pathParameterMap = Collections.emptyMap();
+        if (Objects.nonNull(step.getParameters())) {
+            pathParameterMap = step.getParameters().stream()
+                    .collect(Collectors.toMap(
+                            Parameter::getName,
+                            parameter -> resolver.resolveExpression(parameter.getValue().toString(), null)
+                    ));
+
+            requestSpecification.pathParams(pathParameterMap);
+        }
+
+        // apply default content type
+        requestSpecification.contentType(ContentType.JSON);
+
+        // apply body
+        // TODO refactor
+        if (Objects.nonNull(step.getRequestBody())) {
+            requestSpecification.contentType(step.getRequestBody().getContentType());
+            AtomicReference<String> resolvedPayload = new AtomicReference<>(resolver.resolveString(step.getRequestBody().getPayload().toString()));
+
+            if (Objects.nonNull(step.getRequestBody().getReplacements())) {
+                var replacements = step.getRequestBody().getReplacements();
+                replacements.forEach(replacement -> {
+                    if (replacement.getTarget().startsWith("$")) {
+                        // JSONPointer
+                        var resolvedValue = resolver.resolveString(replacement.getValue().toString());
+                        resolvedPayload.set(JsonPath.parse(resolvedPayload.get())
+                                .set(replacement.getTarget(), resolvedValue).jsonString());
+                    } else {
+                        // XPATH
+                        try {
+                            Document document = DocumentBuilderFactory.newInstance()
+                                    .newDocumentBuilder()
+                                    .parse(new InputSource(new StringReader(resolvedPayload.get())));
+
+                            XPath xpath = XPathFactory.newInstance().newXPath();
+                            Node node = (Node) xpath.evaluate(
+                                    replacement.getTarget(),
+                                    document,
+                                    XPathConstants.NODE);
+                            if (node != null) {
+                                node.setTextContent(replacement.getValue().toString());
+                            }
+                            TransformerFactory tf = TransformerFactory.newInstance();
+                            Transformer transformer = tf.newTransformer();
+                            StringWriter writer = new StringWriter();
+                            transformer.transform(new DOMSource(document), new StreamResult(writer));
+                            resolvedPayload.set(writer.getBuffer().toString());
+                        } catch (SAXException e) {
+                            throw new RuntimeException(e);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        } catch (ParserConfigurationException e) {
+                            throw new RuntimeException(e);
+                        } catch (XPathExpressionException e) {
+                            throw new RuntimeException(e);
+                        } catch (TransformerConfigurationException e) {
+                            throw new RuntimeException(e);
+                        } catch (TransformerException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+            }
+            requestSpecification.body(resolvedPayload.get());
+        }
+
+        return requestSpecification;
     }
 
-    private Response makeRequest(final RequestSpecification requestSpecification, final Map.Entry<String, PathItem> pathOperationEntry) {
-        var pathAsString = pathOperationEntry.getKey();
-        var pathItem = pathOperationEntry.getValue();
+    private Response makeRequest(final RequestSpecification requestSpecification, final Map.Entry<String, Method> pathMethodEntry) {
+        var pathAsString = pathMethodEntry.getKey();
+        var method = pathMethodEntry.getValue();
 
-        if (Objects.nonNull(pathItem.getGet())) {
-            return requestSpecification.get(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getPost())) {
-            return requestSpecification.post(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getPut())) {
-            return requestSpecification.put(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getDelete())) {
-            return requestSpecification.delete(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getOptions())) {
-            return requestSpecification.options(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getPatch())) {
-            return requestSpecification.patch(pathAsString);
-
-        } else if (Objects.nonNull(pathItem.getHead())) {
-            return requestSpecification.head(pathAsString);
-
-        } else {
-            throw new RuntimeException("Unsupported by RestAssured");
-        }
+        return switch (method) {
+            case GET -> requestSpecification.get(pathAsString);
+            case POST -> requestSpecification.post(pathAsString);
+            case PUT -> requestSpecification.put(pathAsString);
+            case DELETE -> requestSpecification.delete(pathAsString);
+            case OPTIONS -> requestSpecification.options(pathAsString);
+            case PATCH -> requestSpecification.patch(pathAsString);
+            case HEAD -> requestSpecification.head(pathAsString);
+            default -> throw new RuntimeException("Unsupported by RestAssured");
+        };
     }
 
     // TODO refactor
@@ -187,20 +268,19 @@ public class HttpStepExecutor implements StepExecutor {
                             .filter(f -> shouldExecuteAction(f.getCriteria(), criterionEvaluator, restAssuredContext))
                             .findFirst()
                             .orElse(null);
-                    if (Objects.nonNull(fittingFailureAction)) {
-                        System.out.printf("Running failure action '%s' for step '%s'%n", fittingFailureAction.getName(), step.getStepId());
-                        if (FailureAction.FailureActionType.RETRY.equals(fittingFailureAction.getType())) {
-                            // apply provided retry-after header value to the action
-                            var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
-                            if (Objects.nonNull(retryAfter)) {
-                                System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", fittingFailureAction.getName(), retryAfter);
-                                fittingFailureAction.setRetryAfter(new BigDecimal(retryAfter));
-                            }
+
+                    assert Objects.nonNull(fittingFailureAction) : "Failure action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
+
+                    System.out.printf("Running failure action '%s' for step '%s'%n", fittingFailureAction.getName(), step.getStepId());
+                    if (FailureAction.FailureActionType.RETRY.equals(fittingFailureAction.getType())) {
+                        // apply provided retry-after header value to the action
+                        var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
+                        if (Objects.nonNull(retryAfter)) {
+                            System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", fittingFailureAction.getName(), retryAfter);
+                            fittingFailureAction.setRetryAfter(new BigDecimal(retryAfter));
                         }
-                        stepExecutionResultBuilder.failureAction(fittingFailureAction);
-                    } else {
-                        System.out.printf("%n%n====%nWARN: No matching failure action criteria for step '%s'%n====%n%n", step.getStepId());
                     }
+                    stepExecutionResultBuilder.failureAction(fittingFailureAction);
                 }
             } else {
                 if (Objects.nonNull(step.getOnSuccess())) {
@@ -209,12 +289,11 @@ public class HttpStepExecutor implements StepExecutor {
                             .filter(f -> shouldExecuteAction(f.getCriteria(), criterionEvaluator, restAssuredContext))
                             .findFirst()
                             .orElse(null);
-                    if (Objects.nonNull(fittingSuccessAction)) {
-                        System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
-                        stepExecutionResultBuilder.successAction(fittingSuccessAction);
-                    } else {
-                        System.out.printf("%n%n====%nWARN: No matching success action criteria for step '%s'%n====%n%n", step.getStepId());
-                    }
+
+                    assert Objects.nonNull(fittingSuccessAction) : "Success action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
+
+                    System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
+                    stepExecutionResultBuilder.successAction(fittingSuccessAction);
                 }
             }
         }
@@ -222,12 +301,15 @@ public class HttpStepExecutor implements StepExecutor {
         // Resolve outputs
         if (Objects.nonNull(step.getOutputs())) {
             step.getOutputs().entrySet().forEach(output -> {
+                Object resolvedOutput = null;
                 if (output.getValue() instanceof TextNode textNode) {
-                    var resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
-                    if (Objects.nonNull(resolvedOutput)) {
-                        var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
-                        resolver.addResolved(key, resolvedOutput);
-                    }
+                    resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
+                } else {
+                    resolvedOutput = resolver.resolveExpression(output.getValue().toString(), restAssuredContext);
+                }
+                if (Objects.nonNull(resolvedOutput)) {
+                    var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
+                    resolver.addResolved(key, resolvedOutput);
                 } else {
                     throw new RuntimeException("Unexpected");
                 }
