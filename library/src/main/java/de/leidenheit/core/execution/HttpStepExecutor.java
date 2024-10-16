@@ -295,25 +295,25 @@ public class HttpStepExecutor implements StepExecutor {
                     System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
                     stepExecutionResultBuilder.successAction(fittingSuccessAction);
                 }
-            }
-        }
 
-        // Resolve outputs
-        if (Objects.nonNull(step.getOutputs())) {
-            step.getOutputs().entrySet().forEach(output -> {
-                Object resolvedOutput = null;
-                if (output.getValue() instanceof TextNode textNode) {
-                    resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
-                } else {
-                    resolvedOutput = resolver.resolveExpression(output.getValue().toString(), restAssuredContext);
+                // Resolve outputs
+                if (Objects.nonNull(step.getOutputs())) {
+                    step.getOutputs().entrySet().forEach(output -> {
+                        Object resolvedOutput = null;
+                        if (output.getValue() instanceof TextNode textNode) {
+                            resolvedOutput = resolver.resolveExpression(textNode.asText(), restAssuredContext);
+                        } else {
+                            resolvedOutput = resolver.resolveExpression(output.getValue().toString(), restAssuredContext);
+                        }
+                        if (Objects.nonNull(resolvedOutput)) {
+                            var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
+                            resolver.addResolved(key, resolvedOutput);
+                        } else {
+                            throw new RuntimeException("Unexpected");
+                        }
+                    });
                 }
-                if (Objects.nonNull(resolvedOutput)) {
-                    var key = String.format("$steps.%s.outputs.%s", step.getStepId(), output.getKey());
-                    resolver.addResolved(key, resolvedOutput);
-                } else {
-                    throw new RuntimeException("Unexpected");
-                }
-            });
+            }
         }
 
         return stepExecutionResultBuilder.build();

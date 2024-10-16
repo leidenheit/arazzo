@@ -70,28 +70,28 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
     @Override
     public String resolveHeader(final String headerName, final Headers headers) {
         var header = headers.getValue(headerName);
-        if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
+        // TODO if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
         return header;
     }
 
     @Override
     public String resolvePathParam(final String paramName, final Map<String, String> pathParams) {
         var pathParam = pathParams.get(paramName);
-        if (Objects.isNull(pathParam)) throw new RuntimeException("Unexpected");
+        // TODO if (Objects.isNull(pathParam)) throw new RuntimeException("Unexpected");
         return pathParam;
     }
 
     @Override
     public String resolveRequestBodyPayload(final RequestSpecification requestSpecification) {
         String body = ((FilterableRequestSpecification) requestSpecification).getBody();
-        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
+        // TODO if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body;
     }
 
     @Override
     public String resolveResponseBodyPayload(final Response response) {
         var body = response.body();
-        if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
+        // TODO if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
         return body.asString();
     }
 }

@@ -171,10 +171,11 @@ public class StepValidator implements Validator<Step> {
             if (!SourceDescription.SourceDescriptionType.OPENAPI.equals(sourceDescription.getType())) continue;
 
             var refOas = sourceDescription.getReferencedOpenAPI();
-            if (Objects.isNull(refOas)) throw new RuntimeException("Unexpected");
-            return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
-                    operationPath, refOas.getPaths()
-            );
+            if (Objects.nonNull(refOas)) {
+                return JsonPointerOperationComparator.compareJsonPointerToPathAndOperation(
+                        operationPath, refOas.getPaths()
+                );
+            }
         }
         return false;
     }

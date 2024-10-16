@@ -46,7 +46,7 @@ public class CriterionEvaluator {
         if (resolved instanceof String resolvedAsString) {
             return resolvedAsString;
         }
-        throw new RuntimeException("Unexpected");
+        return null;
     }
 
     private boolean evaluateSimpleCondition(final Criterion criterion, final ResolverContext resolverContext) {
@@ -56,7 +56,7 @@ public class CriterionEvaluator {
 
     private boolean evaluateRegex(final Criterion criterion, final ResolverContext resolverContext) {
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
-        if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
+        if (Objects.isNull(contextValue)) return false;
         // e.g. $response.body.fieldHugo -> ^FieldHugoValue$
         return contextValue.matches(criterion.getCondition());
     }
@@ -64,9 +64,7 @@ public class CriterionEvaluator {
     private boolean evaluateJsonPath(final Criterion criterion, final ResolverContext resolverContext) {
         // Resolve the context value (e.g., response body)
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
-        if (Objects.isNull(contextValue)) {
-            throw new RuntimeException("Unexpected");
-        }
+        if (Objects.isNull(contextValue)) return false;
 
         // Parse the contextValue into a JSON Node
         JsonNode jsonNode = null;
@@ -139,7 +137,7 @@ public class CriterionEvaluator {
 
     private boolean evaluateXPath(final Criterion criterion, final ResolverContext resolverContext) {
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
-        if (Objects.isNull(contextValue)) throw new RuntimeException("Unexpected");
+        if (Objects.isNull(contextValue)) return false;
         return evaluateXPathExpression(contextValue, criterion.getCondition());
     }
 

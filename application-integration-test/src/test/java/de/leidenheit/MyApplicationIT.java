@@ -12,10 +12,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import java.util.stream.Stream;
 
 @ExtendWith(ArazzoExtension.class)
-class ArazzoIT {
+class MyApplicationIT {
 
     @TestFactory
-    @DisplayName("ITArazzo")
+    @DisplayName("Testing")
     Stream<DynamicTest> testMyArazzo(final ArazzoSpecification arazzo,
                                       final String inputsFilePath) {
         ArazzoDynamicTest dynamicTest = new ArazzoDynamicTest();

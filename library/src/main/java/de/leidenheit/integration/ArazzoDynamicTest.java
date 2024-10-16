@@ -6,7 +6,6 @@ import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.io.ArazzoInputsReader;
 import org.junit.jupiter.api.DynamicTest;
-import org.junit.jupiter.api.TestFactory;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -15,7 +14,6 @@ public class ArazzoDynamicTest {
 
     private final Map<String, Map<String, Object>> outputsOfWorkflows = new LinkedHashMap<>();
 
-    @TestFactory
     public Stream<DynamicTest> generateWorkflowTests(final ArazzoSpecification arazzo, final String inputsPath) {
         // sort workflows
         var sortedWorkflows = sortWorkflowsByDependencies(arazzo);

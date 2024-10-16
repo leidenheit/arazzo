@@ -20,7 +20,7 @@ sourceDescriptions:
 workflows:
   - workflowId: fetch-inventory-and-apply-pet-order
     dependsOn:
-      - retrieveCookieAndEatCookie
+      - retrieve-cookie-and-eat-cookie
     summary: Fetches the inventory of the pet store.
     description: >-
       lorem ipsum description of fetching inventory and placing order
@@ -137,13 +137,13 @@ workflows:
       placedOrderId: $steps.place-pet-order.outputs.orderId
       placedOrderStatus: $steps.place-pet-order.outputs.orderStatus
 
-  - workflowId: retrieveCookieAndEatCookie
+  - workflowId: retrieve-cookie-and-eat-cookie
     summary: Retrieve cookie by an identifier and eat it
     description: This workflow lays out the steps to retrieve a cookie and then eat it.
     inputs:
       $ref: '#/components/inputs/cookieIds'
     steps:
-      - stepId: retrieveCookieStep
+      - stepId: retrieve-cookie
         description: This step demonstrates the retrieval of a cookie step.
         operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
         parameters:
@@ -181,7 +181,7 @@ workflows:
           # outputs from this step
           cookieDto: $response.body
           requestedCookieId: $request.path.id
-      - stepId: eatCookieStep
+      - stepId: eat-cookie
         description: Eat a cookie identified by its id.
         operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}~1eat/post'
         #operationId: eatCookie
@@ -228,7 +228,7 @@ components:
     gotoEatCookie:
       name: successRetrieveCookieAndEatCookieAndEnd
       type: goto
-      stepId: eatCookieStep
+      stepId: eat-cookie
       criteria:
         # assertions to determine if this action should be executed
         - condition: $statusCode == 200
@@ -238,7 +238,7 @@ components:
       type: retry
       retryAfter: 1 # seconds
       retryLimit: 5
-      stepId: eatCookieStep
+      stepId: eat-cookie
       criteria:
         # assertions to determine if this action should be executed
         - condition: $statusCode == 404
