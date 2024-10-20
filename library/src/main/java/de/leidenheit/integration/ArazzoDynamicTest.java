@@ -12,7 +12,7 @@ import java.util.stream.Stream;
 
 public class ArazzoDynamicTest {
 
-    private final Map<String, Map<String, Object>> outputsOfWorkflows = new LinkedHashMap<>();
+    private Map<String, Map<String, Object>> outputsOfWorkflows = new LinkedHashMap<>();
 
     public Stream<DynamicTest> generateWorkflowTests(final ArazzoSpecification arazzo, final String inputsPath) {
         // sort workflows
@@ -30,14 +30,11 @@ public class ArazzoDynamicTest {
     }
 
     private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final Map<String, Object> inputs, final Map<String, Map<String, Object>> outputs) {
-        var executor = new ArazzoWorkflowExecutor();
+        var executor = new ArazzoWorkflowExecutor(arazzo, inputs, outputsOfWorkflows);
 
         System.out.printf("%n=============%nExecuting Workflow '%s'%n", workflow.getWorkflowId());
-        var currentOutputs = executor.execute(arazzo, workflow, inputs);
-        if (Objects.nonNull(currentOutputs)) {
-            System.out.printf("%nOutputs of workflow '%s': %s%n", workflow.getWorkflowId(), currentOutputs);
-            outputsOfWorkflows.put(workflow.getWorkflowId(), currentOutputs);
-        }
+        outputsOfWorkflows  = executor.execute(workflow);
+        System.out.printf("%nOutputs of all workflows: %s%n", outputsOfWorkflows);
         System.out.printf("=============%n%n");
     }
 

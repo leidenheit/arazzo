@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class HttpStepExecutor implements StepExecutor {
+public class RestAssuredStepExecutor implements StepExecutor {
 
     @Override
     public ExecutionResult executeStep(final ArazzoSpecification arazzo,
@@ -260,7 +260,7 @@ public class HttpStepExecutor implements StepExecutor {
 
             stepExecutionResultBuilder.successful(success);
 
-            System.out.printf("=> Step ['%s']: Successful: '%s'%n", step.getStepId(), success);
+            System.out.printf("=> Step ['%s']: successful: '%s'%n", step.getStepId(), success);
             if (!success) {
                 if (Objects.nonNull(step.getOnFailure())) {
                     // return the first failure action object that fulfills its criteria

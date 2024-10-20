@@ -60,8 +60,8 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
             throw new RuntimeException("Parsing result is invalid: %s".formatted(parseResult.getMessages()));
         }
 
-        SourceDescriptionInitializer sourceDescriptionInitializer = new SourceDescriptionInitializer();
-        sourceDescriptionInitializer.initialize(parseResult.getArazzo());
+        // initializes arazzo/oas referenced through source descriptions
+        SourceDescriptionInitializer.initialize(parseResult.getArazzo());
 
         ArazzoValidatorRegistry validatorRegistry = new ArazzoValidatorRegistry();
         ArazzoValidationOptions validationOptions = ArazzoValidationOptions.ofDefault();

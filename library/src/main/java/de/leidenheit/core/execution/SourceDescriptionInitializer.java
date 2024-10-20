@@ -12,7 +12,7 @@ import java.util.Collections;
 
 public class SourceDescriptionInitializer {
 
-    public void initialize(final ArazzoSpecification arazzo) {
+    public static void initialize(final ArazzoSpecification arazzo) {
         arazzo.getSourceDescriptions().forEach(sourceDescription -> {
             switch (sourceDescription.getType()) {
                 case OPENAPI:
@@ -27,7 +27,7 @@ public class SourceDescriptionInitializer {
         });
     }
 
-    private void initializeAsOpenAPI(final SourceDescription sourceDescription) {
+    private static void initializeAsOpenAPI(final SourceDescription sourceDescription) {
         OpenAPIV3Parser parser = new OpenAPIV3Parser();
         ParseOptions options = new ParseOptions();
         options.setResolveFully(true);
@@ -36,7 +36,7 @@ public class SourceDescriptionInitializer {
         sourceDescription.setReferencedOpenAPI(openAPI);
     }
 
-    private void initializeAsArazzo(final SourceDescription sourceDescription) {
+    private static void initializeAsArazzo(final SourceDescription sourceDescription) {
         ArazzoParser parser = new ArazzoParser();
         var options = ArazzoParseOptions.builder()
                 .oaiAuthor(false)
