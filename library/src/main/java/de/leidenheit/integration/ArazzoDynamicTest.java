@@ -31,11 +31,14 @@ public class ArazzoDynamicTest {
 
     private void executeWorkflow(final ArazzoSpecification arazzo, final Workflow workflow, final Map<String, Object> inputs, final Map<String, Map<String, Object>> outputs) {
         var executor = new ArazzoWorkflowExecutor();
+
+        System.out.printf("%n=============%nExecuting Workflow '%s'%n", workflow.getWorkflowId());
         var currentOutputs = executor.execute(arazzo, workflow, inputs);
         if (Objects.nonNull(currentOutputs)) {
-            System.out.printf("Outputs of workflow '%s': %s%n", workflow.getWorkflowId(), currentOutputs);
+            System.out.printf("%nOutputs of workflow '%s': %s%n", workflow.getWorkflowId(), currentOutputs);
             outputsOfWorkflows.put(workflow.getWorkflowId(), currentOutputs);
         }
+        System.out.printf("=============%n%n");
     }
 
     private List<Workflow> sortWorkflowsByDependencies(final ArazzoSpecification arazzo) {

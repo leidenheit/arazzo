@@ -248,7 +248,7 @@ public class HttpStepExecutor implements StepExecutor {
                     .allMatch(c -> {
                         var isSatisfied = criterionEvaluator.evalCriterion(c, restAssuredContext);
                         if (!isSatisfied) {
-                            System.out.printf("Unsatisfied success criterion condition '%s' in step '%s'('%s %s -> %s')%n",
+                            System.out.printf("@@@===> Unsatisfied success criterion condition '%s' in step '%s'('%s %s -> %s')%n",
                                     c.getCondition(),
                                     step.getStepId(),
                                     restAssuredContext.getLatestHttpMethod(),
@@ -260,7 +260,7 @@ public class HttpStepExecutor implements StepExecutor {
 
             stepExecutionResultBuilder.successful(success);
 
-            System.out.printf("Execution of step '%s' successful: '%s'%n", step.getStepId(), success);
+            System.out.printf("=> Step ['%s']: Successful: '%s'%n", step.getStepId(), success);
             if (!success) {
                 if (Objects.nonNull(step.getOnFailure())) {
                     // return the first failure action object that fulfills its criteria
@@ -269,14 +269,14 @@ public class HttpStepExecutor implements StepExecutor {
                             .findFirst()
                             .orElse(null);
 
-                    assert Objects.nonNull(fittingFailureAction) : "Failure action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
+                    assert Objects.nonNull(fittingFailureAction) : "@@@===> Failure action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
 
-                    System.out.printf("Running failure action '%s' for step '%s'%n", fittingFailureAction.getName(), step.getStepId());
+//                    System.out.printf("Running failure action '%s' for step '%s'%n", fittingFailureAction.getName(), step.getStepId());
                     if (FailureAction.FailureActionType.RETRY.equals(fittingFailureAction.getType())) {
                         // apply provided retry-after header value to the action
                         var retryAfter = restAssuredContext.getLastestResponse().getHeader("Retry-After");
                         if (Objects.nonNull(retryAfter)) {
-                            System.out.printf("Applying header value of 'Retry-After' to failure action '%s': retryAfter=%s%n", fittingFailureAction.getName(), retryAfter);
+                            System.out.printf("=> FailureAction ['%s' as '%s']: applying header 'Retry-After' with a value of '%s'%n", fittingFailureAction.getName(), fittingFailureAction.getType(), retryAfter);
                             fittingFailureAction.setRetryAfter(new BigDecimal(retryAfter));
                         }
                     }
@@ -290,9 +290,9 @@ public class HttpStepExecutor implements StepExecutor {
                             .findFirst()
                             .orElse(null);
 
-                    assert Objects.nonNull(fittingSuccessAction) : "Success action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
+                    assert Objects.nonNull(fittingSuccessAction) : "@@@===> Success action criteria are not fully satisfied for step '%s'%n====%n%n".formatted(step.getStepId());
 
-                    System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
+//                    System.out.printf("Running success action '%s' for step '%s'%n", fittingSuccessAction.getName(), step.getStepId());
                     stepExecutionResultBuilder.successAction(fittingSuccessAction);
                 }
 

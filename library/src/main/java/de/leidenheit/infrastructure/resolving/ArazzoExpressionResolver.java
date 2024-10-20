@@ -53,14 +53,29 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
         if (Objects.isNull(resolved)) {
             if (expression.startsWith("$inputs.")) {
                 resolved = ResolverUtils.getNestedValue(inputs, expression.substring("$inputs.".length()));
+                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                    resolved = resolvedAsTextNode.asText();
+                }
             } else if (expression.startsWith("$outputs.")) {
                 resolved = ResolverUtils.getNestedValue(outputs, expression.substring("$outputs.".length()));
+                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                    resolved = resolvedAsTextNode.asText();
+                }
             } else if (expression.startsWith("$sourceDescriptions.")) {
                 resolved = resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
+                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                    resolved = resolvedAsTextNode.asText();
+                }
             } else if (expression.startsWith("$workflows.")) {
                 resolved = resolveWorkflows(workflows, expression.substring("$workflows.".length()));
+                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                    resolved = resolvedAsTextNode.asText();
+                }
             } else if (expression.startsWith("$steps.")) {
                 resolved = resolveSteps(steps, expression.substring("$steps.".length()));
+                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                    resolved = resolvedAsTextNode.asText();
+                }
             } else if (expression.startsWith("$components.") || expression.startsWith("#/components")) {
                 // TODO internal exception
                 throw new RuntimeException("Expected to be handled by ArazzoComponentRefResolver but was not: %s".formatted(expression));

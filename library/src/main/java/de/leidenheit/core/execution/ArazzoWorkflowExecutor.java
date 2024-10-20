@@ -1,145 +1,143 @@
 package de.leidenheit.core.execution;
 
 import com.fasterxml.jackson.databind.node.TextNode;
-import de.leidenheit.core.model.*;
+import de.leidenheit.core.execution.context.ExecutionResult;
+import de.leidenheit.core.model.ArazzoSpecification;
+import de.leidenheit.core.model.FailureAction;
+import de.leidenheit.core.model.SourceDescription;
+import de.leidenheit.core.model.Step;
+import de.leidenheit.core.model.SuccessAction;
+import de.leidenheit.core.model.Workflow;
 import de.leidenheit.infrastructure.resolving.ArazzoExpressionResolver;
+import lombok.Builder;
+import lombok.Data;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ArazzoWorkflowExecutor {
 
     private final SourceDescriptionInitializer sourceDescriptionInitializer = new SourceDescriptionInitializer();
     private final StepExecutor stepExecutor = new HttpStepExecutor();
-
     private final Map<String, Object> outputs = new HashMap<>();
 
     public Map<String, Object> execute(final ArazzoSpecification arazzo, final Workflow workflow, final Map<String, Object> inputs) {
         sourceDescriptionInitializer.initialize(arazzo);
-
         var resolver = ArazzoExpressionResolver.getInstance(arazzo, inputs);
 
-        // execute
-        Iterator<Step> stepIterator = workflow.getSteps().iterator();
-        Step currentStep = stepIterator.hasNext() ? stepIterator.next() : null;
         Map<String, Integer> retryCounters = new HashMap<>();
-        while (Objects.nonNull(currentStep)) {
-            // referenced a workflow from another arazzo
+
+        int currentStepIndex = 0;
+        while (currentStepIndex < workflow.getSteps().size()) {
+            Step currentStep = workflow.getSteps().get(currentStepIndex);
+
+            // TODO refactor
+            // execute referenced workflow as content of this step
             if (Objects.nonNull(currentStep.getWorkflowId())) {
-
-                var sourceDescription = findRelevantSourceDescriptionByWorkflowId(arazzo, currentStep.getWorkflowId());
-                var refWorkflow = findWorkflowByWorkflowId(sourceDescription.getReferencedArazzo(), currentStep.getWorkflowId());
-
-                Objects.requireNonNull(sourceDescription);
-                Objects.requireNonNull(refWorkflow);
-
-                System.out.printf("Delegating execution of workflow '%s' referenced by step '%s' of workflow '%s'%n", refWorkflow.getWorkflowId(), currentStep.getStepId(), workflow.getWorkflowId());
-
-                var refWorkflowOutputs = execute(sourceDescription.getReferencedArazzo(), refWorkflow, inputs);
-                outputs.putAll(refWorkflowOutputs);
-
-                if (stepIterator.hasNext()) {
-                    currentStep = stepIterator.next();
-                } else {
-                    currentStep = null;
-                }
+                executeToReferencedWorkflow(arazzo, workflow, currentStep, inputs);
+                currentStepIndex++;
                 continue;
             }
 
-            // within current arazzo
-            System.out.printf("Running step '%s' of workflow '%s'%n", currentStep.getStepId(), workflow.getWorkflowId());
+            // execute step content
+             System.out.printf("%nRunning step '%s' of workflow '%s'%n", currentStep.getStepId(), workflow.getWorkflowId());
             var executionResult = stepExecutor.executeStep(arazzo, workflow, currentStep, resolver);
-            Optional<Step> nextStep = Optional.empty();
-            if (executionResult.isSuccessful()) {
-                var actionList = new ArrayList<SuccessAction>();
-                if (Objects.nonNull(workflow.getSuccessActions())) {
-                    actionList.addAll(workflow.getSuccessActions());
-                }
-                if (Objects.nonNull(executionResult.getSuccessAction())) {
-                    actionList.add(executionResult.getSuccessAction());
-                }
-                if (!actionList.isEmpty()) {
-                    nextStep = handleSuccessActions(arazzo, actionList, currentStep, workflow, workflow.getSteps(), inputs, resolver);
-                }
-            } else {
-                var actionList = new ArrayList<FailureAction>();
-                if (Objects.nonNull(workflow.getFailureActions())) {
-                    actionList.addAll(workflow.getFailureActions());
-                }
-                if (Objects.nonNull(executionResult.getFailureAction())) {
-                    actionList.add(executionResult.getFailureAction());
-                }
+            ExecutionDecision executionDecision = handleExecutionResultActions(arazzo, workflow, currentStep, executionResult, inputs, retryCounters, resolver);
 
-                // no failure actions defined
-                assert !actionList.isEmpty() : "Aborting workflow '%s' due to an unsuccessful step '%s' with an empty set of failure actions"
-                        .formatted(workflow.getWorkflowId(), currentStep.getStepId());
-
-                nextStep = handleFailureActions(arazzo, actionList, currentStep, workflow, workflow.getSteps(), retryCounters, inputs, resolver);
+            if (executionDecision.isEnd()) {
+                // workflow has found its end
+                break;
             }
 
-            if (nextStep.isPresent()) {
-                currentStep = nextStep.get();
-            } else if (stepIterator.hasNext()) {
-                currentStep = stepIterator.next();
+            if (Objects.isNull(executionDecision.nextStepIndex)) {
+                // no specific reference, so choose sequentially the next step
+                currentStepIndex++;
             } else {
-                currentStep = null;
+                // we got a reference, so apply it
+                currentStepIndex = executionDecision.getNextStepIndex();
             }
         }
 
-        // resolve and store outputs
         outputs.putAll(handleOutputs(workflow, resolver));
-
         return outputs;
     }
 
-    private Optional<Step> handleSuccessActions(final ArazzoSpecification arazzo,
-                                                final ArrayList<SuccessAction> actionList,
-                                                final Step currentStep,
-                                                final Workflow workflow,
-                                                final List<Step> steps,
-                                                final Map<String, Object> inputs,
-                                                final ArazzoExpressionResolver resolver) {
+    private ExecutionDecision handleExecutionResultActions(final ArazzoSpecification arazzo,
+                                                        final Workflow workflow,
+                                                        final Step currentStep,
+                                                        final ExecutionResult executionResult,
+                                                        final Map<String, Object> inputs,
+                                                        final Map<String, Integer> retryCounters,
+                                                        final ArazzoExpressionResolver resolver) {
+        List<SuccessAction> successActions;
+        List<FailureAction> failureActions;
+
+        if (executionResult.isSuccessful()) {
+            successActions = collectSuccessActions(workflow, executionResult);
+            return handleSuccessActions(arazzo, successActions, workflow, currentStep, inputs, resolver);
+        } else {
+            failureActions = collectFailureActions(workflow, executionResult);
+
+            assert !failureActions.isEmpty() : "Aborting workflow '%s' due to an unsuccessful step '%s' with an empty set of failure actions"
+                    .formatted(workflow.getWorkflowId(), currentStep.getStepId());
+
+            return handleFailureActions(arazzo, failureActions, currentStep, workflow, retryCounters, inputs, resolver);
+        }
+    }
+
+    private ExecutionDecision handleSuccessActions(final ArazzoSpecification arazzo,
+                                                  final List<SuccessAction> actionList,
+                                                  final Workflow workflow,
+                                                  final Step currentStep,
+                                                  final Map<String, Object> inputs,
+                                                  final ArazzoExpressionResolver resolver) {
         for (SuccessAction successAction : actionList) {
             switch (successAction.getType()) {
                 case GOTO -> {
-                    System.out.printf("Interrupting sequential step execution due to success action %s(type=%s)%n",
-                            successAction.getName(), successAction.getType());
                     // find referenced step or workflow to execute
                     if (Objects.nonNull(successAction.getStepId())) {
-                        var refStep = workflow.getSteps().stream()
-                                .filter(step -> successAction.getStepId().contains(step.getStepId()))
-                                .findFirst()
-                                .orElseThrow(() -> new RuntimeException("Unexpected"));
-                        var executionResult = stepExecutor.executeStep(arazzo, workflow, refStep, resolver);
-                        if (!executionResult.isSuccessful()) {
-                            System.out.printf("Referenced step '%s' in success action was not successful%n", refStep.getStepId());
-                            // TODO handle failure actions also in retry context
-                        } else {
-                            // TODO handle success actions also in retry context
-                        }
+//                        var x = handleStepIdExecutionReference(arazzo, workflow, successAction.getStepId(), inputs, resolver);
+                        System.out.printf("=> SuccessAction ['%s' as %s]: interrupts sequential execution and moves to step '%s'%n",
+                                successAction.getName(), successAction.getType(), successAction.getStepId());
+                        var x2 = findStepIndexById(workflow, successAction.getStepId());
+                        return ExecutionDecision.builder()
+                                .nextStepIndex(x2)
+                                .isEnd(false)
+                                .build();
                     } else if (Objects.nonNull(successAction.getWorkflowId())) {
-                        var workflowToTransferTo = findWorkflowByWorkflowId(arazzo, successAction.getWorkflowId());
-                        var refOutputs = execute(arazzo, workflowToTransferTo, inputs);
+                        System.out.printf("=> SuccessAction ['%s' as %s]: interrupts sequential execution and moves to workflow '%s'%n",
+                                successAction.getName(), successAction.getType(), successAction.getWorkflowId());
+                        var refOutputs = handleWorkflowIdExecutionReference(arazzo, successAction.getWorkflowId(), inputs);
                         outputs.putAll(refOutputs);
+                        return ExecutionDecision.builder()
+                                .isEnd(true)
+                                .build();
                     }
-                    return Optional.empty();
                 }
                 case END -> {
-                    System.out.printf("Ending sequential step execution due to success action %s(type=%s)%n",
-                            successAction.getName(), successAction.getType());
-                    return Optional.empty();
+                    System.out.printf("=> SuccessAction ['%s' as %s]: ends workflow%n", successAction.getName(), successAction.getType());
+
+                    return ExecutionDecision.builder()
+                            .isEnd(true)
+                            .build();
                 }
                 default -> throw new RuntimeException("Unexpected");
             }
         }
-        return Optional.empty();
+//        return Optional.empty();
+        return ExecutionDecision.builder()
+                // .nextStepIndex(findStepIndexById(workflow, currentStep.getStepId()))
+                .isEnd(false)
+                .build();
     }
 
-    @SuppressWarnings("java:S5960") // assertion in production code
-    private Optional<Step> handleFailureActions(final ArazzoSpecification arazzo,
-                                                final ArrayList<FailureAction> actionList,
+    private ExecutionDecision handleFailureActions(final ArazzoSpecification arazzo,
+                                                final List<FailureAction> actionList,
                                                 final Step currentStep,
                                                 final Workflow workflow,
-                                                final List<Step> steps,
                                                 final Map<String, Integer> retryCounters,
                                                 final Map<String, Object> inputs,
                                                 final ArazzoExpressionResolver resolver) {
@@ -147,125 +145,114 @@ public class ArazzoWorkflowExecutor {
 
             switch (failureAction.getType()) {
                 case GOTO -> {
-                    System.out.printf("Interrupting sequential step execution due to failure action %s(type=%s)%n",
-                            failureAction.getName(), failureAction.getType());
                     // find referenced step or workflow to execute
                     if (Objects.nonNull(failureAction.getStepId())) {
-                        var refStep = workflow.getSteps().stream()
-                                .filter(step -> failureAction.getStepId().contains(step.getStepId()))
-                                .findFirst()
-                                .orElseThrow(() -> new RuntimeException("Unexpected"));
-                        var executionResult = stepExecutor.executeStep(arazzo, workflow, refStep, resolver);
-                        if (!executionResult.isSuccessful()) {
-                            System.out.printf("Referenced step '%s' in failure action was not successful%n", refStep.getStepId());
-                            // TODO handle failure actions also in retry context
-                        } else {
-                            // TODO handle success actions also in retry context
-                        }
+//                        var x = handleStepIdExecutionReference(arazzo, workflow, failureAction.getStepId(), inputs, resolver);
+                        var x2 = findStepIndexById(workflow, failureAction.getStepId());
+                        System.out.printf("=> FailureAction ['%s' as %s]: interrupts sequential execution and moves to step '%s'%n",
+                                failureAction.getName(), failureAction.getType(), failureAction.getStepId());
+                        return ExecutionDecision.builder()
+                                .nextStepIndex(x2)
+                                .isEnd(false)
+                                .build();
                     } else if (Objects.nonNull(failureAction.getWorkflowId())) {
-                        var workflowToTransferTo = findWorkflowByWorkflowId(arazzo, failureAction.getWorkflowId());
-                        var refOutputs = execute(arazzo, workflowToTransferTo, inputs);
+                        System.out.printf("=> FailureAction ['%s' as %s]: interrupts sequential execution and moves to workflow '%s'%n",
+                                failureAction.getName(), failureAction.getType(), failureAction.getWorkflowId());
+                        var refOutputs = handleWorkflowIdExecutionReference(arazzo, failureAction.getWorkflowId(), inputs);
                         outputs.putAll(refOutputs);
+
+                        return ExecutionDecision.builder()
+//                                .step(currentStep)
+                                .isEnd(true)
+                                .build();
                     }
-                    // return empty in order to leave loop
-                    return Optional.empty();
                 }
                 case END -> {
-                    System.out.printf("Ending sequential step execution due to failure action %s(type=%s)%n",
-                            failureAction.getName(), failureAction.getType());
-                    return Optional.empty();
+                    System.out.printf("=> FailureAction ['%s' as %s]: ends workflow%n", failureAction.getName(), failureAction.getType());
+                    // return Optional.empty();
+                    return ExecutionDecision.builder()
+                            .isEnd(true)
+                            .build();
                 }
                 case RETRY -> {
                     int retryCount = retryCounters.getOrDefault(currentStep.getStepId(), 0);
                     retryCount++;
-
                     assert retryCount < failureAction.getRetryLimit() : "Reached retry limit for step failure action %s(type=%s)"
                             .formatted(failureAction.getName(), failureAction.getType());
+                    retryCounters.put(currentStep.getStepId(), retryCount);
+                    System.out.printf("=> FailureAction ['%s as %s']: Retrying %s/%s after waiting %s seconds%n",
+                            failureAction.getName(),
+                            failureAction.getType(),
+                            retryCount + 1,
+                            failureAction.getRetryLimit(),
+                            failureAction.getRetryAfter().longValue());
 
-                    if (retryCount < failureAction.getRetryLimit()) {
-                        try {
-                            System.out.printf("Waiting %s seconds before retry%n", failureAction.getRetryAfter());
-                            Thread.sleep(failureAction.getRetryAfter().longValue() * 1000L);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                        retryCounters.put(currentStep.getStepId(), retryCount);
-                        System.out.printf("Retrying (%s/%s) step execution due to failure action %s(type=%s)%n",
-                                retryCount, failureAction.getRetryLimit(), failureAction.getName(), failureAction.getType());
-
-                        // find referenced step or workflow to execute before retrying current step
-                        if (Objects.nonNull(failureAction.getStepId())) {
-                            var refStep = workflow.getSteps().stream()
-                                    .filter(step -> failureAction.getStepId().contains(step.getStepId()))
-                                    .findFirst()
-                                    .orElseThrow(() -> new RuntimeException("Unexpected"));
-                            var executionResult = stepExecutor.executeStep(arazzo, workflow, refStep, resolver);
-                            if (!executionResult.isSuccessful()) {
-                                System.out.printf("Referenced step '%s' in failure action was not successful%n", refStep.getStepId());
-                                // TODO handle failure actions also in retry context
-                                var refActionList = new ArrayList<FailureAction>();
-                                if (Objects.nonNull(workflow.getFailureActions())) {
-                                    refActionList.addAll(workflow.getFailureActions());
-                                }
-                                if (Objects.nonNull(executionResult.getFailureAction())) {
-                                    refActionList.add(executionResult.getFailureAction());
-                                }
-                                if (!refActionList.isEmpty()) {
-                                    return handleFailureActions(arazzo, refActionList, refStep, workflow, workflow.getSteps(), retryCounters, inputs, resolver);
-                                }
-                            } else {
-                                System.out.printf("Referenced step '%s' in success action was successful%n", refStep.getStepId());
-                                // TODO handle success actions also in retry context
-                                var refActionList = new ArrayList<SuccessAction>();
-                                if (Objects.nonNull(workflow.getSuccessActions())) {
-                                    refActionList.addAll(workflow.getSuccessActions());
-                                }
-                                if (Objects.nonNull(executionResult.getSuccessAction())) {
-                                    refActionList.add(executionResult.getSuccessAction());
-                                }
-                                if (!refActionList.isEmpty()) {
-                                    return handleSuccessActions(arazzo, refActionList, refStep, workflow, workflow.getSteps(), inputs, resolver);
-                                }
-                            }
-                        } else if (Objects.nonNull(failureAction.getWorkflowId())) {
-                            var workflowToTransferTo = findWorkflowByWorkflowId(arazzo, failureAction.getWorkflowId());
-                            var refOutputs = execute(arazzo, workflowToTransferTo, inputs);
-                            outputs.putAll(refOutputs);
-                        }
-                        return Optional.of(currentStep);
+                    // find referenced step or workflow to execute before retrying current step
+                    if (Objects.nonNull(failureAction.getStepId())) {
+                        handleStepIdExecutionReference(arazzo, workflow, failureAction.getStepId(), inputs, resolver);
+                    } else if (Objects.nonNull(failureAction.getWorkflowId())) {
+                        var refOutputs = handleWorkflowIdExecutionReference(arazzo, failureAction.getWorkflowId(), inputs);
+                        outputs.putAll(refOutputs);
                     }
+
+
+                    doWait(failureAction.getRetryAfter().longValue());
+
+                    return ExecutionDecision.builder()
+                            .nextStepIndex(findStepIndexById(workflow, currentStep.getStepId()))
+                            .isEnd(false)
+                            .build();
                 }
                 default -> throw new RuntimeException("Unexpected");
             }
         }
-        return Optional.empty();
+        // no actions defined; stick to sequential execution
+        return ExecutionDecision.builder()
+                .isEnd(false)
+                .build();
     }
 
     private Map<String, Object> handleOutputs(final Workflow workflow, final ArazzoExpressionResolver resolver) {
-        var res = new HashMap<String, Object>();
-        if (Objects.nonNull(workflow.getOutputs())) {
-            workflow.getOutputs().forEach((key, value) -> {
-                Object resolvedOutput = null;
-                if (value instanceof TextNode textNode) {
-                    resolvedOutput = resolver.resolveString(textNode.asText());
-                } else {
-                    resolvedOutput = resolver.resolveString(value.toString());
-                }
-                if (Objects.nonNull(resolvedOutput)) {
-                    res.put(key, resolvedOutput);
-                } else {
-                    throw new RuntimeException("Unexpected");
-                }
-            });
-        }
-        return res;
+        var resolvedOutputs = new HashMap<String, Object>();
+        if (Objects.isNull(workflow.getOutputs())) return resolvedOutputs;
+
+        workflow.getOutputs().forEach((key, value) -> {
+            Object resolvedOutput;
+            if (value instanceof TextNode textNode) {
+                resolvedOutput = resolver.resolveString(textNode.asText());
+            } else {
+                resolvedOutput = resolver.resolveString(value.toString());
+            }
+            if (Objects.isNull(resolvedOutput)) throw new RuntimeException("Unexpected");
+
+            resolvedOutputs.put(key, resolvedOutput);
+        });
+
+        return resolvedOutputs;
     }
 
-    private Workflow findWorkflowByWorkflowId(final ArazzoSpecification arazzo, final String workflowId) {
-        return arazzo.getWorkflows().stream()
-                .filter(wf -> workflowId.contains(wf.getWorkflowId()))
+    private ExecutionDecision handleStepIdExecutionReference(final ArazzoSpecification arazzo,
+                                                final Workflow workflow,
+                                                final String referencedStepId,
+                                                final Map<String, Object> inputs,
+                                                final ArazzoExpressionResolver resolver) {
+        var refStep = workflow.getSteps().stream()
+                .filter(step -> referencedStepId.contains(step.getStepId()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Unexpected"));
+        var executionResult = stepExecutor.executeStep(arazzo, workflow, refStep, resolver);
+        var decision = handleExecutionResultActions(arazzo, workflow, refStep, executionResult, inputs, null, resolver);
+        return decision;
+//        if (Objects.nonNull(executionDecision.getStep())) {
+//            stepExecutor.executeStep(arazzo, workflow, executionDecision.getStep(), resolver);
+//        }
+    }
+
+    private Map<String, Object> handleWorkflowIdExecutionReference(final ArazzoSpecification arazzo,
+                                                                   final String referencedWorkflowId,
+                                                                   final Map<String, Object> inputs) {
+        var workflowToTransferTo = findWorkflowByWorkflowId(arazzo, referencedWorkflowId);
+        return execute(arazzo, workflowToTransferTo, inputs);
     }
 
     private SourceDescription findRelevantSourceDescriptionByWorkflowId(final ArazzoSpecification arazzo, final String workflowId) {
@@ -277,5 +264,74 @@ public class ArazzoWorkflowExecutor {
                     .orElseThrow(() -> new RuntimeException("Unexpected"));
         }
         return sourceDescription;
+    }
+
+    private Workflow findWorkflowByWorkflowId(final ArazzoSpecification arazzo, final String workflowId) {
+        return arazzo.getWorkflows().stream()
+                .filter(wf -> workflowId.contains(wf.getWorkflowId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Unexpected"));
+    }
+
+    private List<SuccessAction> collectSuccessActions(final Workflow workflow, final ExecutionResult executionResult) {
+        List<SuccessAction> actions = new ArrayList<>();
+        if (workflow.getSuccessActions() != null) {
+            actions.addAll(workflow.getSuccessActions());
+        }
+        if (executionResult.getSuccessAction() != null) {
+            actions.add(executionResult.getSuccessAction());
+        }
+        return actions;
+    }
+
+    private List<FailureAction> collectFailureActions(final Workflow workflow, final ExecutionResult executionResult) {
+        List<FailureAction> actions = new ArrayList<>();
+        if (workflow.getFailureActions() != null) {
+            actions.addAll(workflow.getFailureActions());
+        }
+        if (executionResult.getFailureAction() != null) {
+            actions.add(executionResult.getFailureAction());
+        }
+        return actions;
+    }
+
+    private void executeToReferencedWorkflow(final ArazzoSpecification arazzo,
+                                             final Workflow workflow,
+                                             final Step currentStep,
+                                             final Map<String, Object> inputs) {
+        var sourceDescription = findRelevantSourceDescriptionByWorkflowId(arazzo, currentStep.getWorkflowId());
+        var refWorkflow = findWorkflowByWorkflowId(sourceDescription.getReferencedArazzo(), currentStep.getWorkflowId());
+
+        Objects.requireNonNull(sourceDescription);
+        Objects.requireNonNull(refWorkflow);
+
+        System.out.printf("Step ['%s']: delegates to workflow '%s' by reference%n", currentStep.getStepId(), refWorkflow.getWorkflowId());
+        var refWorkflowOutputs = execute(sourceDescription.getReferencedArazzo(), refWorkflow, inputs);
+        outputs.putAll(refWorkflowOutputs);
+    }
+
+    private void doWait(final Long seconds) {
+        try {
+            Thread.sleep(seconds * 1000L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private int findStepIndexById(final Workflow workflow, final String stepId) {
+        for (int i = 0; i < workflow.getSteps().size(); i++) {
+            if (workflow.getSteps().get(i).getStepId().equals(stepId)) {
+                return i;
+            }
+        }
+        throw new RuntimeException("Step not found: " + stepId);
+    }
+
+    @Data
+    @Builder
+    private static class ExecutionDecision {
+
+        private Integer nextStepIndex;
+        private boolean isEnd;
     }
 }

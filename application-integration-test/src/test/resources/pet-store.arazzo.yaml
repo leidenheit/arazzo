@@ -78,6 +78,16 @@ workflows:
             condition: '#/petId == 4'
             type: jsonpath
             version: draft-goessner-dispatch-jsonpath-00
+#        onSuccess:
+#          - name: leaveWorkflow2
+#            type: end
+#            criteria:
+#              # assertions to determine if this action should be executed
+#              - condition: $response.body != null
+#              - condition: '#/petId == 4'
+#                context: $response.body
+#                type: jsonpath
+#                version: draft-goessner-dispatch-jsonpath-00
         onFailure:
           - name: retryRetrievePlacedOrderByIdSixTimes
             type: retry
@@ -103,10 +113,10 @@ workflows:
             condition: '#/code == 200'
             type: jsonpath
             version: draft-goessner-dispatch-jsonpath-00
-        onSuccess:
-          - name: lookupNoLongerExistingOrderById
+        onFailure:
+          - name: fetchInventoryAgain
             type: goto
-            stepId: lookup-non-existing-order
+            stepId: fetch-inventory
             criteria:
               # assertions to determine if this action should be executed
               - condition: '#/type == unknown'
@@ -118,7 +128,6 @@ workflows:
         operationPath: '{$sourceDescriptions.petStoreApi.url}#/paths/~1store~1order~1{orderId}/get'
         parameters:
           - reference: $components.parameters.orderId
-        #            value: '4711' # sad path
         successCriteria:
           # assertions to determine step was successful
           - condition: $statusCode == 404
@@ -181,6 +190,17 @@ workflows:
           # outputs from this step
           cookieDto: $response.body
           requestedCookieId: $request.path.id
+
+      - stepId: retrieve-non-existing-cookie
+        description: lorem
+        operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}/get'
+        parameters:
+          - reference: $components.parameters.cookieId
+            value: '117'
+        successCriteria:
+          # assertions to determine step was successful
+          - condition: $statusCode == 404
+          - condition: $response.body == null
       - stepId: eat-cookie
         description: Eat a cookie identified by its id.
         operationPath: '{$sourceDescriptions.cookieApi.url}#/paths/~1cookies~1{id}~1eat/post'
@@ -198,8 +218,8 @@ workflows:
           - condition: $response.body == null
     outputs:
       # outputs from this wf
-      cookieDto: $steps.retrieveCookieStep.outputs.cookieDto
-      requestedCookieId: $steps.retrieveCookieStep.outputs.requestedCookieId
+      cookieDto: $steps.retrieve-cookie.outputs.cookieDto
+      requestedCookieId: $steps.retrieve-cookie.outputs.requestedCookieId
 
 components:
   inputs:
@@ -208,6 +228,9 @@ components:
       properties:
         petId:
           type: number
+#        outputTestFromAnotherWorkflow:
+#          hugo: $workflows.retrieve-cookie-and-eat-cookie.outputs.cookieDto
+#          hugo2: $workflows.retrieve-cookie-and-eat-cookie.outputs.requestedCookieId
     cookieIds:
       type: object
       properties:
@@ -224,6 +247,7 @@ components:
       name: orderId
       in: path
       value: $steps.place-pet-order.outputs.orderId
+#      value: $workflows.retrieve-cookie-and-eat-cookie.outputs.requestedCookieId
   successActions:
     gotoEatCookie:
       name: successRetrieveCookieAndEatCookieAndEnd

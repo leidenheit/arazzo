@@ -87,7 +87,7 @@ public class CriterionEvaluator {
                     JsonNode nodeAtPointer = jsonNode.at(ptr);
                     if (Objects.isNull(nodeAtPointer)) throw new RuntimeException("Unexpected");
 
-                    System.out.printf("Criterion condition: ptr=%s; operator=%s; expected=%s%n", ptr, operator, expected);
+//                    System.out.printf("Criterion condition: ptr=%s; operator=%s; expected=%s%n", ptr, operator, expected);
 
                     // Resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
@@ -112,7 +112,7 @@ public class CriterionEvaluator {
                     String query = matcher.group("query");
                     String operator = matcher.group("operator");
                     String expected = matcher.group("expected");
-                    System.out.printf("Criterion condition: query=%s; operator=%s; expected=%s%n", query, operator, expected);
+//                    System.out.printf("Criterion condition: query=%s; operator=%s; expected=%s%n", query, operator, expected);
 
                     // Resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
