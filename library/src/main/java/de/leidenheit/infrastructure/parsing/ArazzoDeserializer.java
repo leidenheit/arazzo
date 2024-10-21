@@ -664,7 +664,6 @@ public class ArazzoDeserializer {
 
         ObjectNode inputsObj = getObject("inputs", node, false, location, parseResult);
         if (inputsObj != null) {
-            // workflow.setInputs(getSchema(inputsObj, String.format("%s.%s", location, "inputs"), parseResult));
             workflow.setInputs(inputsObj);
         }
 
@@ -858,10 +857,8 @@ public class ArazzoDeserializer {
 
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
-                // TODO use this reusable object handling to other places where reusable objects are possible values
                 if (item.has("reference")) {
                     ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
-                    // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
                     var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));
@@ -894,10 +891,8 @@ public class ArazzoDeserializer {
 
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
-                // TODO use this reusable object handling to other places where reusable objects are possible values
                 if (item.has("reference")) {
                     ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
-                    // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
                     var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));
@@ -908,7 +903,6 @@ public class ArazzoDeserializer {
                             successActionList.add(successAction);
                         }
                     }
-
                 } else {
                     SuccessAction successAction = getSuccessAction((ObjectNode) item, location, parseResult);
                     if (Objects.nonNull(successAction)) {
@@ -1078,10 +1072,8 @@ public class ArazzoDeserializer {
         List<Parameter> parameters = new ArrayList<>();
         for (JsonNode item : node) {
             if (JsonNodeType.OBJECT.equals(item.getNodeType())) {
-                // TODO use this reusable object handling to other places where reusable objects are possible values
                 if (item.has("reference")) {
                     ReusableObject reusableObject = getReusableObject((ObjectNode) item, location, parseResult);
-                    // TODO resolve and add to result
                     parseResult.warning(String.format("%s.%s", location, "reusableObject"), "resolver not implemented");
 
                     var resolver = ArazzoComponentsReferenceResolver.getInstance(this.rootNode.get("components"));

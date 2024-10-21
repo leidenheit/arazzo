@@ -17,6 +17,7 @@ public class JsonPointerOperationComparator {
         try {
             Pattern pattern = Pattern.compile("#/[^']+");
             Matcher matcher = pattern.matcher(operationPathJsonPointer);
+            // TODO replace with exception
             if (!matcher.find()) throw new RuntimeException("Unexpected");
 
             var validJsonPointerOfOperationPath = matcher.group();
@@ -34,6 +35,7 @@ public class JsonPointerOperationComparator {
                             })
                     )
                     .findFirst()
+                    // TODO replace with exception
                     .orElseThrow(() -> new RuntimeException("No operation found for path " + extractedPath));
             return Objects.nonNull(res);
         } catch (IllegalArgumentException e) {

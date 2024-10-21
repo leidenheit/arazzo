@@ -1,4 +1,4 @@
-package de.leidenheit.core.execution;
+package de.leidenheit.infrastructure.parsing;
 
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.SourceDescription;
@@ -22,6 +22,7 @@ public class SourceDescriptionInitializer {
                     initializeAsArazzo(sourceDescription);
                     break;
                 default:
+                    // TODO replace with exception
                     throw new RuntimeException("Unexpected");
             }
         });
@@ -46,8 +47,11 @@ public class SourceDescriptionInitializer {
                 .build();
         var refArazzo = parser.readLocation(sourceDescription.getUrl(), options);
         if (refArazzo.isInvalid()) {
+            // TODO replace with exception
             throw new RuntimeException("Unexpected");
         }
         sourceDescription.setReferencedArazzo(refArazzo.getArazzo());
     }
+
+    private SourceDescriptionInitializer() {}
 }

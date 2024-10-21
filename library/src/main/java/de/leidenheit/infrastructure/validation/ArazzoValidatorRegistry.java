@@ -80,6 +80,7 @@ public class ArazzoValidatorRegistry {
             final ArazzoSpecification arazzo,
             final ArazzoValidationOptions options) {
         Validator<T> validator = (Validator<T>) findValidatorForObject(partOfArazzo);
+        // TODO replace with exception
         if (Objects.isNull(validator)) throw new RuntimeException("Unexpected");
         return validator.validate(partOfArazzo, context, arazzo, options);
     }

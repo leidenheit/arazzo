@@ -29,6 +29,7 @@ public class ArazzoComponentsReferenceResolver {
         } else if (reference.startsWith("$components.")) {
             return resolveRuntimeExpression(reference);
         }
+        // TODO replace with exception
         throw new RuntimeException("Unexpected");
     }
 
@@ -37,6 +38,7 @@ public class ArazzoComponentsReferenceResolver {
         String pointer = jsonPointer.replace("#/components", "");
         JsonNode result = componentsNode.at(pointer);
         if (result.isMissingNode()) {
+            // TODO replace with exception
             throw new RuntimeException("Unexpected");
         }
         return result;
@@ -45,6 +47,7 @@ public class ArazzoComponentsReferenceResolver {
     private JsonNode resolveRuntimeExpression(final String runtimeExpression) {
         String[] keys = runtimeExpression.split("\\.");
         if (keys.length < 2 || !keys[0].equals("$components")) {
+            // TODO replace with exception
             throw new RuntimeException("Unexpected");
         }
         String[] targetFields = Arrays.copyOfRange(keys, 1, keys.length);

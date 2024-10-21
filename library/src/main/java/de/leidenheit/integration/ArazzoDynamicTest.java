@@ -33,7 +33,7 @@ public class ArazzoDynamicTest {
         var executor = new ArazzoWorkflowExecutor(arazzo, inputs, outputsOfWorkflows);
 
         System.out.printf("%n=============%nExecuting Workflow '%s'%n", workflow.getWorkflowId());
-        outputsOfWorkflows  = executor.execute(workflow);
+        outputsOfWorkflows  = executor.executeWorkflow(workflow);
         System.out.printf("%nOutputs of all workflows: %s%n", outputsOfWorkflows);
         System.out.printf("=============%n%n");
     }
@@ -72,7 +72,7 @@ public class ArazzoDynamicTest {
     private Map<String, Object> readInputs(final ArazzoSpecification arazzo,
                                            final JsonNode inputsSchemaNode,
                                            final String inputsFilePath) {
-        if (Objects.isNull(inputsSchemaNode)) return null;
+        if (Objects.isNull(inputsSchemaNode)) return Collections.emptyMap();
         var inputs = ArazzoInputsReader.parseAndValidateInputs(arazzo, inputsFilePath, inputsSchemaNode);
         System.out.printf("Provided inputs for arazzo: %s%n", inputs.toString());
         return inputs;

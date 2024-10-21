@@ -1,7 +1,7 @@
 package de.leidenheit.integration.extension;
 
 import com.google.common.base.Strings;
-import de.leidenheit.core.execution.SourceDescriptionInitializer;
+import de.leidenheit.infrastructure.parsing.SourceDescriptionInitializer;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.infrastructure.parsing.ArazzoParseOptions;
 import de.leidenheit.infrastructure.parsing.ArazzoParser;
@@ -22,6 +22,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
     @Override
     public void beforeAll(final ExtensionContext context) {
         var arazzoPath = readFromSystemProperties(PROPERTY_ARAZZO_FILE)
+                // TODO replace with exception
                 .orElseThrow(() -> new RuntimeException("Unexpected"));
         var arazzo = loadArazzoFromPath(arazzoPath);
         supportedParameterTypes.put(ArazzoSpecification.class, arazzo);
@@ -30,6 +31,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
     @Override
     public void beforeEach(final ExtensionContext context) {
         var arazzoInputs = readFromSystemProperties(PROPERTY_ARAZZO_INPUTS_FILE)
+                // TODO replace with exception
                 .orElseThrow(() -> new RuntimeException("Unexpected"));
         supportedParameterTypes.put(String.class, arazzoInputs);
     }
@@ -57,6 +59,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
         ArazzoParseOptions parseOptions = ArazzoParseOptions.ofDefault();
         var parseResult = parser.readLocation(pathOfArazzo, parseOptions);
         if (parseResult.isInvalid()) {
+            // TODO replace with exception
             throw new RuntimeException("Parsing result is invalid: %s".formatted(parseResult.getMessages()));
         }
 
@@ -67,6 +70,7 @@ public class ArazzoExtension implements BeforeAllCallback, BeforeEachCallback, P
         ArazzoValidationOptions validationOptions = ArazzoValidationOptions.ofDefault();
         var validationResult = validatorRegistry.validate(parseResult.getArazzo(), validationOptions);
         if (validationResult.isInvalid()) {
+            // TODO replace with exception
             throw new RuntimeException("Validation result is invalid: %s".formatted(validationResult.getMessages()));
         }
 

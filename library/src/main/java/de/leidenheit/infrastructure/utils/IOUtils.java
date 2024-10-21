@@ -48,5 +48,5 @@ public class IOUtils {
         return System.getProperty("user.dir");
     }
 
-    private IOUtils() {};
+    private IOUtils() {}
 }

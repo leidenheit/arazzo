@@ -20,29 +20,27 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
     private final ArrayNode steps = mapper.createArrayNode();
     private final ArrayNode workflows = mapper.createArrayNode();
     private final ArrayNode sourceDescriptions = mapper.createArrayNode();
-    private final JsonNode componentsNode;
 
     // hold resolved values to easily reference them later
     private final Map<String, Object> resolvedMap = new LinkedHashMap<>();
 
+    public static synchronized ArazzoExpressionResolver getInstance(final ArazzoSpecification arazzo,
+                                                                    final Map<String, Object> inputs) {
+        if (Objects.isNull(instance)) {
+            instance = new ArazzoExpressionResolver(arazzo, inputs);
+        }
+        return instance;
+    }
+
     private ArazzoExpressionResolver(final ArazzoSpecification arazzo, final Map<String, Object> inputs) {
         this.inputs = inputs;
-        this.componentsNode = Objects.requireNonNull(
-                mapper.convertValue(arazzo.getComponents(), JsonNode.class));
         this.sourceDescriptions.addAll(Objects.requireNonNull(
                 mapper.convertValue(arazzo.getSourceDescriptions(), ArrayNode.class)));
         this.workflows.addAll(Objects.requireNonNull(
                 mapper.convertValue(arazzo.getWorkflows(), ArrayNode.class)));
         arazzo.getWorkflows().forEach(workflow ->
-            this.steps.addAll(Objects.requireNonNull(
-                    mapper.convertValue(workflow.getSteps(), ArrayNode.class))));
-    }
-
-    public static synchronized ArazzoExpressionResolver getInstance(final ArazzoSpecification arazzo, final Map<String, Object> inputs) {
-        if (Objects.isNull(instance)) {
-            instance = new ArazzoExpressionResolver(arazzo, inputs);
-        }
-        return instance;
+                this.steps.addAll(Objects.requireNonNull(
+                        mapper.convertValue(workflow.getSteps(), ArrayNode.class))));
     }
 
     @Override
@@ -53,31 +51,31 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
         if (Objects.isNull(resolved)) {
             if (expression.startsWith("$inputs.")) {
                 resolved = ResolverUtils.getNestedValue(inputs, expression.substring("$inputs.".length()));
-                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode resolvedAsTextNode) {
                     resolved = resolvedAsTextNode.asText();
                 }
             } else if (expression.startsWith("$outputs.")) {
                 resolved = ResolverUtils.getNestedValue(outputs, expression.substring("$outputs.".length()));
-                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode resolvedAsTextNode) {
                     resolved = resolvedAsTextNode.asText();
                 }
             } else if (expression.startsWith("$sourceDescriptions.")) {
                 resolved = resolveSourceDescription(sourceDescriptions, expression.substring("$sourceDescriptions.".length()));
-                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode resolvedAsTextNode) {
                     resolved = resolvedAsTextNode.asText();
                 }
             } else if (expression.startsWith("$workflows.")) {
                 resolved = resolveWorkflows(workflows, expression.substring("$workflows.".length()));
-                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode resolvedAsTextNode) {
                     resolved = resolvedAsTextNode.asText();
                 }
             } else if (expression.startsWith("$steps.")) {
                 resolved = resolveSteps(steps, expression.substring("$steps.".length()));
-                if (Objects.nonNull(resolved) &&  resolved instanceof TextNode resolvedAsTextNode) {
+                if (Objects.nonNull(resolved) && resolved instanceof TextNode resolvedAsTextNode) {
                     resolved = resolvedAsTextNode.asText();
                 }
             } else if (expression.startsWith("$components.") || expression.startsWith("#/components")) {
-                // TODO internal exception
+                // TODO replace with exception
                 throw new RuntimeException("Expected to be handled by ArazzoComponentRefResolver but was not: %s".formatted(expression));
             } else {
                 return super.resolveExpression(expression, context);
@@ -115,12 +113,13 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
                         result.append(resolved);
                     }
                 } else {
+                    // TODO replace with exception
                     throw new RuntimeException("Unexpected");
                 }
                 start = closeIndex + 1;
             }
         } else {
-             result.append(resolveExpression(expression, null));
+            result.append(resolveExpression(expression, null));
         }
         return result.toString();
     }
@@ -129,9 +128,7 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
         this.resolvedMap.put(key, resolved);
     }
 
-    private JsonNode resolveSourceDescription(
-            ArrayNode sourceDescriptionsArray,
-            String keyPath) {
+    private JsonNode resolveSourceDescription(final ArrayNode sourceDescriptionsArray, final String keyPath) {
         String[] keys = keyPath.split("\\.");
 
         if (keys.length < 2) return null;
@@ -148,9 +145,7 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
     }
 
 
-    private JsonNode resolveSteps(
-            ArrayNode stepsArray,
-            String keyPath) {
+    private JsonNode resolveSteps(final ArrayNode stepsArray, final String keyPath) {
         String[] keys = keyPath.split("\\.");
 
         if (keys.length < 2) return null;
@@ -165,15 +160,14 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
                     resolved = new TextNode(resolveString(resolved.asText()));
                     return resolved;
                 }
+                // TODO replace with exception
                 throw new RuntimeException("Unexpected");
             }
         }
         return null;
     }
 
-    private JsonNode resolveWorkflows(
-            ArrayNode stepsArray,
-            String keyPath) {
+    private JsonNode resolveWorkflows(final ArrayNode stepsArray, final String keyPath) {
         String[] keys = keyPath.split("\\.");
 
         if (keys.length < 2) return null;
@@ -188,13 +182,14 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
                     resolved = new TextNode(resolveString(resolved.asText()));
                     return resolved;
                 }
+                // TODO replace with exception
                 throw new RuntimeException("Unexpected");
             }
         }
         return null;
     }
 
-    private void resolveJsonObject(ObjectNode node) {
+    private void resolveJsonObject(final ObjectNode node) {
         node.fields().forEachRemaining(entry -> {
             JsonNode value = entry.getValue();
             if (value.isTextual()) {
@@ -208,7 +203,7 @@ public class ArazzoExpressionResolver extends HttpContextExpressionResolver {
         });
     }
 
-    private void resolveJsonArray(ArrayNode arrayNode) {
+    private void resolveJsonArray(final ArrayNode arrayNode) {
         for (int i = 0; i < arrayNode.size(); i++) {
             JsonNode value = arrayNode.get(i);
             if (value.isTextual()) {

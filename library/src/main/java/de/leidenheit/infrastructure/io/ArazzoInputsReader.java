@@ -49,6 +49,7 @@ public class ArazzoInputsReader {
             return mapper.convertValue(inputs, new TypeReference<>() {
             });
         } catch (Exception e) {
+            // TODO replace with exception
             throw new RuntimeException(e);
         }
     }
@@ -60,6 +61,7 @@ public class ArazzoInputsReader {
             var mapper = getMapper(contentAsString);
             return mapper.readTree(contentAsString);
         }
+        // TODO replace with exception
         throw new RuntimeException("Unexpected");
     }
 
@@ -75,5 +77,6 @@ public class ArazzoInputsReader {
         return YAML_MAPPER;
     }
 
-    private ArazzoInputsReader() {}
+    private ArazzoInputsReader() {
+    }
 }

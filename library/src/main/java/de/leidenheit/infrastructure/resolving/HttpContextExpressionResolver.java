@@ -14,6 +14,7 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
     @Override
     public Object resolveExpression(final String expression, final ResolverContext context) {
         if (Objects.isNull(context)) return expression;
+        // TODO replace with exception
         if (!(HttpResolverContext.class.isAssignableFrom(context.getClass()))) throw new RuntimeException("Unexpected");
 
         var httpContext = (HttpResolverContext) context;
@@ -34,11 +35,13 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
                         var r = JsonPath.read(responseBody, "$.%s".formatted(subPath));
                         return r;
                     } catch (Exception e) {
+                        // TODO replace with exception
                         throw new RuntimeException("Invalid JSON path: '%s'".formatted(expression));
                     }
                 }
                 return responseBody;
             }
+            // TODO replace with exception
             throw new RuntimeException("Not supported");
         } else if (expression.startsWith("$request.")) {
             if (expression.startsWith("$request.header")) {
@@ -69,29 +72,21 @@ public class HttpContextExpressionResolver implements HttpExpressionResolver {
 
     @Override
     public String resolveHeader(final String headerName, final Headers headers) {
-        var header = headers.getValue(headerName);
-        // TODO if (Objects.isNull(header)) throw new RuntimeException("Unexpected");
-        return header;
+        return headers.getValue(headerName);
     }
 
     @Override
     public String resolvePathParam(final String paramName, final Map<String, String> pathParams) {
-        var pathParam = pathParams.get(paramName);
-        // TODO if (Objects.isNull(pathParam)) throw new RuntimeException("Unexpected");
-        return pathParam;
+       return pathParams.get(paramName);
     }
 
     @Override
     public String resolveRequestBodyPayload(final RequestSpecification requestSpecification) {
-        String body = ((FilterableRequestSpecification) requestSpecification).getBody();
-        // TODO if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
-        return body;
+        return ((FilterableRequestSpecification) requestSpecification).getBody();
     }
 
     @Override
     public String resolveResponseBodyPayload(final Response response) {
-        var body = response.body();
-        // TODO if (Objects.isNull(body)) throw new RuntimeException("Unexpected");
-        return body.asString();
+        return (Objects.nonNull(response.body())) ? response.body().asString() : null;
     }
 }

@@ -7,6 +7,7 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
+@Deprecated(since = "Unsure if meaningful")
 public @interface WithWorkflowExecutor {
     String workflowId();
 }

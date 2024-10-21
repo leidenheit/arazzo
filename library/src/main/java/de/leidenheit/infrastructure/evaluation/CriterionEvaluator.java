@@ -62,38 +62,35 @@ public class CriterionEvaluator {
     }
 
     private boolean evaluateJsonPath(final Criterion criterion, final ResolverContext resolverContext) {
-        // Resolve the context value (e.g., response body)
+        // resolve the context value (e.g., response body)
         String contextValue = resolveCriterionContext(criterion.getContext(), resolverContext);
         if (Objects.isNull(contextValue)) return false;
 
-        // Parse the contextValue into a JSON Node
-        JsonNode jsonNode = null;
+        // parse the contextValue into a JSON Node
+        JsonNode jsonNode;
         try {
             jsonNode = mapper.readTree(contextValue);
 
-            // Check if the criterion uses a JSON Pointer (starts with #/)
+            // check if the criterion uses a JSON Pointer (starts with #/)
             if (criterion.getCondition().startsWith("#/")) {
-                // Extract JSON pointer, operator and expected value
+                // extract JSON pointer, operator and expected value
                 Pattern pattern = Pattern.compile("#(?<ptr>/[^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
                 Matcher matcher = pattern.matcher(criterion.getCondition());
 
                 if (matcher.find()) {
-                    String ptr = matcher.group("ptr");         // JSON Pointer
-                    String operator = matcher.group("operator");  // Operator
-                    String expected = matcher.group("expected");  // Erwarteter Wert
+                    String ptr = matcher.group("ptr");
+                    String operator = matcher.group("operator");
+                    String expected = matcher.group("expected");
 
-
-                    // Use JSON Pointer to resolve the node
+                    // use JSON Pointer to resolve the node
                     JsonNode nodeAtPointer = jsonNode.at(ptr);
+                    // TODO replace with exception
                     if (Objects.isNull(nodeAtPointer)) throw new RuntimeException("Unexpected");
 
-//                    System.out.printf("Criterion condition: ptr=%s; operator=%s; expected=%s%n", ptr, operator, expected);
-
-                    // Resolve expected if it is an expression
+                    // resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
 
-
-                    // Evaluate condition based on the extracted node (simple condition)
+                    // evaluate condition based on the extracted node (simple condition)
                     var resolvedCriterion = Criterion.builder()
                             .type(Criterion.CriterionType.SIMPLE)
                             .condition(String.format("%s %s %s", nodeAtPointer.asText(), operator, expected))
@@ -101,10 +98,11 @@ public class CriterionEvaluator {
                             .build();
                     return evaluateSimpleCondition(resolvedCriterion, resolverContext);
                 } else {
+                    // TODO replace with exception
                     throw new RuntimeException("Unexpected");
                 }
             } else {
-                // Extract query, operator and expected value
+                // extract query, operator and expected value
                 Pattern pattern = Pattern.compile("(?<query>[$][^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
                 Matcher matcher = pattern.matcher(criterion.getCondition());
 
@@ -112,12 +110,12 @@ public class CriterionEvaluator {
                     String query = matcher.group("query");
                     String operator = matcher.group("operator");
                     String expected = matcher.group("expected");
-//                    System.out.printf("Criterion condition: query=%s; operator=%s; expected=%s%n", query, operator, expected);
 
-                    // Resolve expected if it is an expression
+                    // resolve expected if it is an expression
                     expected = resolver.resolveString(expected);
 
                     var jsonNodeValue = JsonPath.parse(jsonNode.toString()).read(query);
+                    // TODO replace with exception
                     if (Objects.isNull(jsonNodeValue)) throw new RuntimeException("Unexpected");
                     // Evaluate condition based on the extracted node (simple condition)
                     var resolvedCriterion = Criterion.builder()
@@ -127,10 +125,12 @@ public class CriterionEvaluator {
                             .build();
                     return evaluateSimpleCondition(resolvedCriterion, resolverContext);
                 } else {
+                    // TODO replace with exception
                     throw new RuntimeException("Unexpected");
                 }
             }
         } catch (JsonProcessingException e) {
+            // TODO replace with exception
             throw new RuntimeException(e);
         }
     }
@@ -169,6 +169,7 @@ public class CriterionEvaluator {
         } else if (condition.contains(">")) {
             return compareValues(leftValue, rightValue) > 0;
         } else {
+            // TODO replace with exception
             throw new UnsupportedOperationException("Unsupported operator in condition: " + condition);
         }
     }
@@ -181,6 +182,7 @@ public class CriterionEvaluator {
         } else if (Objects.isNull(leftValue) && "null".equals(rightValue)) {
             return 0;
         } else {
+            // TODO replace with exception
             throw new IllegalArgumentException("Incomparable types: " + leftValue + " and " + rightValue);
         }
     }
@@ -193,6 +195,7 @@ public class CriterionEvaluator {
             XPath xpath = XPathFactory.newInstance().newXPath();
             return (boolean) xpath.evaluate(condition, document, XPathConstants.BOOLEAN);
         } catch (Exception e) {
+            // TODO replace with exception
             throw new RuntimeException("Error while evaluating XPath expression: " + e.getMessage(), e);
         }
     }

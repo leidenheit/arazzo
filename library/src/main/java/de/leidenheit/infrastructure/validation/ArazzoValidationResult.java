@@ -27,21 +27,14 @@ public class ArazzoValidationResult {
         }
         this.errorList.addAll(otherResult.errorList);
         this.invalidTypeMap.putAll(otherResult.invalidTypeMap);
-//        this.missingList.addAll(otherResult.missingList);
         this.warningList.addAll(otherResult.warningList);
         this.uniqueList.addAll(otherResult.uniqueList);
-//        this.reservedList.addAll(otherResult.reservedList);
     }
 
     public void addInvalidType(final String location, final String key, final String expectedType) {
         invalidTypeMap.put(new Location(location, key), expectedType);
         setInvalid(true);
     }
-
-//    public void addMissing(final String location, final String key) {
-//        missingList.add(new Location(location, key));
-//        setInvalid(true);
-//    }
 
     public void addWarning(final String location, final String key) {
         warningList.add(new Location(location, key));
@@ -51,11 +44,6 @@ public class ArazzoValidationResult {
         uniqueList.add(new Location(location, key));
         setInvalid(true);
     }
-
-//    public void addReserved(final String location, final String key) {
-//        reservedList.add(new Location(location, key));
-//        setInvalid(true);
-//    }
 
     public void addError(final String location, final String key) {
         errorList.add(new Location(location, key));
@@ -71,11 +59,6 @@ public class ArazzoValidationResult {
             String message = "Attribute " + location + l.key + " is not of type `" + invalidTypeMap.get(l) + "`";
             messages.add(message);
         }
-//        for (Location l : missingList) {
-//            String location = l.location.isEmpty() ? "" : l.location + ".";
-//            String message = "Attribute " + location + l.key + " is missing";
-//            messages.add(message);
-//        }
         for (Location l : warningList) {
             String location = l.location.isEmpty() ? "" : l.location + ".";
             String message = location + l.key;
@@ -86,11 +69,6 @@ public class ArazzoValidationResult {
             String message = "Attribute " + location + l.key + " is repeated";
             messages.add(message);
         }
-//        for (Location l : reservedList) {
-//            String location = l.location.isEmpty() ? "" : l.location + ".";
-//            String message = "Attribute " + location + l.key + " is reserved by the Arazzo Specification";
-//            messages.add(message);
-//        }
         for (Location l : errorList) {
             String location = l.location.isEmpty() ? "" : l.location + ".";
             String message = location + l.key;
@@ -100,7 +78,6 @@ public class ArazzoValidationResult {
     }
 
     public record Location(String location, String key) {
-
         public static Location of(final String location, final String key) {
             return new Location(location, key);
         }

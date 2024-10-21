@@ -2,15 +2,10 @@ package de.leidenheit.infrastructure.parsing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import de.leidenheit.core.model.ArazzoSpecification;
 import io.swagger.util.ObjectMapperFactory;
-import io.swagger.v3.oas.models.OpenAPI;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.io.FileUtils;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -23,21 +18,12 @@ import java.util.Objects;
 public class ArazzoParser implements ArazzoParserExtension {
 
     private static final Charset ENCODING = StandardCharsets.UTF_8;
-
     private static final ObjectMapper JSON_MAPPER;
     private static final ObjectMapper YAML_MAPPER;
 
     static {
         JSON_MAPPER = ObjectMapperFactory.createJson();
         YAML_MAPPER = ObjectMapperFactory.createYaml();
-    }
-
-//    private ArazzoValidatorRegistry validatorRegistry = new ArazzoValidatorRegistry();
-
-    @Deprecated(since = "ArazzoParserExtension", forRemoval = true)
-    public ArazzoSpecification parseYamlRaw(final File workflowSpecificationFile) throws IOException {
-        var yamlMapper = new ObjectMapper(new YAMLFactory());
-        return yamlMapper.readValue(workflowSpecificationFile, ArazzoSpecification.class);
     }
 
     @Override
@@ -64,6 +50,7 @@ public class ArazzoParser implements ArazzoParserExtension {
                 }
             }
         } catch (Exception e) {
+            // TODO replace with exception
             throw new RuntimeException(e.getMessage());
         }
     }
@@ -91,26 +78,11 @@ public class ArazzoParser implements ArazzoParserExtension {
             } else {
                 arazzoParseResult = parseJsonNode(location, rootNode);
             }
-            // TODO validate
-//            var arazzoValidationResult = validatorRegistry.validate(arazzoParseResult.getArazzo(), ArazzoValidationOptions.ofDefault());
-//            // validatorRegistry.validateAgainstOpenApi()
-//            arazzoParseResult.getMessages().addAll(arazzoValidationResult.getMessages());
-
-            // TODO finalize implementation
-//            if (Objects.nonNull(arazzoParseResult.getArazzo())) {
-//                arazzoParseResult = resolve(arazzoParseResult, options, location);
-//            }
             return arazzoParseResult;
         } catch (Exception e) {
             var msg = String.format("location:%s; msg=%s", location, e.getMessage());
             return ArazzoParseResult.ofError(msg);
         }
-    }
-
-    private ArazzoParseResult resolve(final ArazzoParseResult arazzoParseResult,
-                                      final ArazzoParseOptions options,
-                                      final String location) {
-        return ArazzoParseResult.ofError("Not yet implemented");
     }
 
     private ArazzoParseResult parseJsonNode(final String path, final JsonNode node, final ArazzoParseOptions options) {

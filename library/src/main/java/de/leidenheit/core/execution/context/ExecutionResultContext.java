@@ -7,8 +7,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class ExecutionResult {
-
+public class ExecutionResultContext {
     final boolean successful;
     final SuccessAction successAction;
     final FailureAction failureAction;

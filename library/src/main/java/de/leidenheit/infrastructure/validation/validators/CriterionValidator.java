@@ -106,7 +106,7 @@ public class CriterionValidator implements Validator<Criterion> {
 
     private boolean validateJsonPath(final String condition) {
         try {
-            // FIXME
+            // FIXME redundant code
             if (condition.startsWith("#/")) {
                 // Extract JSON pointer
                 Pattern pattern = Pattern.compile("#(?<ptr>/[^ ]+)\\s*(?<operator>==|!=|<=|>=|<|>)\\s*(?<expected>.+)");
@@ -117,6 +117,7 @@ public class CriterionValidator implements Validator<Criterion> {
                     var compiled = JsonPath.compile(ptr);
                     return !Strings.isNullOrEmpty(compiled.getPath());
                 }
+                // TODO replace with exception
                 throw new RuntimeException("Unexpected");
             } else if (condition.startsWith("$.")) {
                 // Extract JSON path
