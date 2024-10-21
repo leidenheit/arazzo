@@ -1,6 +1,9 @@
 package de.leidenheit.core.execution;
 
 import com.fasterxml.jackson.databind.node.TextNode;
+import de.leidenheit.core.exception.ItarazzoIllegalStateException;
+import de.leidenheit.core.exception.ItarazzoInterruptException;
+import de.leidenheit.core.exception.ItarazzoUnsupportedException;
 import de.leidenheit.core.execution.context.ExecutionResultContext;
 import de.leidenheit.core.model.ArazzoSpecification;
 import de.leidenheit.core.model.FailureAction;
@@ -67,8 +70,7 @@ public class ArazzoWorkflowExecutor {
             }
         }
 
-        // FIXME source description is required here in order to have unique keys
-        outputsOfWorkflows.put(workflow.getWorkflowId(), handleOutputs(workflow, resolver));
+        outputsOfWorkflows.put(workflow.getWorkflowId(),handleOutputs(workflow, resolver));
         return outputsOfWorkflows;
     }
 
@@ -85,9 +87,9 @@ public class ArazzoWorkflowExecutor {
         } else {
             var failureActions = collectFailureActions(workflow, executionResultContext);
 
-            // TODO replace with exception
-            assert !failureActions.isEmpty() : "Aborting workflow '%s' due to an unsuccessful step '%s' with an empty set of failure actions"
-                    .formatted(workflow.getWorkflowId(), currentStep.getStepId());
+            if (failureActions.isEmpty()) throw new ItarazzoInterruptException(
+                    "Empty set of failure actions for unsuccessful operation: workflowId='%s' stepId='%s'".formatted(
+                            workflow.getWorkflowId(), currentStep.getStepId()));
 
             return handleFailureActions(arazzo, failureActions, currentStep, workflow, retryCounters, inputs, resolver);
         }
@@ -140,8 +142,8 @@ public class ArazzoWorkflowExecutor {
                     System.out.printf("=> SuccessAction ['%s' as %s]: ends workflow%n", successAction.getName(), successAction.getType());
                     return handleEndAction();
                 }
-                // TODO replace with exception
-                default -> throw new RuntimeException("Unexpected");
+                default -> throw new ItarazzoUnsupportedException("No implementation for action: name='%s' type='%s'".formatted(
+                        successAction.getName(), successAction.getType()));
             }
         }
         // stick to sequential execution due to no success actions
@@ -177,9 +179,9 @@ public class ArazzoWorkflowExecutor {
                     int retryCount = retryCounters.getOrDefault(currentStep.getStepId(), 0);
                     retryCount++;
 
-                    // TODO replace with exception
-                    assert retryCount < failureAction.getRetryLimit() : "Reached retry limit for step failure action %s(type=%s)"
-                            .formatted(failureAction.getName(), failureAction.getType());
+                    if (retryCount >= failureAction.getRetryLimit()) throw new ItarazzoInterruptException(
+                            "Reached retry limit for step failure action %s(type=%s)".formatted(
+                                    failureAction.getName(), failureAction.getType()));
 
                     retryCounters.put(currentStep.getStepId(), retryCount);
                     System.out.printf("=> FailureAction ['%s as %s']: Retrying %s/%s after waiting %s seconds%n",
@@ -201,8 +203,8 @@ public class ArazzoWorkflowExecutor {
                     var retryAfter = failureAction.getRetryAfter().longValue();
                     return handleRetryAction(workflow, currentStep.getStepId(), retryAfter);
                 }
-                // TODO replace with exception
-                default -> throw new RuntimeException("Unexpected");
+                default -> throw new ItarazzoUnsupportedException("No implementation for action: name='%s' type='%s'".formatted(
+                        failureAction.getName(), failureAction.getType()));
             }
         }
         // stick to sequential execution due to no failure actions
@@ -220,8 +222,9 @@ public class ArazzoWorkflowExecutor {
             } else {
                 resolvedOutput = resolver.resolveString(value.toString());
             }
-            // TODO replace with exception
-            if (Objects.isNull(resolvedOutput)) throw new RuntimeException("Unexpected");
+
+            if (Objects.isNull(resolvedOutput)) throw new ItarazzoIllegalStateException(
+                    "Output must not be null at this point: key='%s' value='%s'".formatted(key, value));
 
             resolvedOutputs.put(key, resolvedOutput);
         });
